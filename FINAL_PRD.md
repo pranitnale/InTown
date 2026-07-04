@@ -1,7 +1,8 @@
 # InTown — The Ultimate AI Trip Companion — Final PRD
 
-> **Status:** Production specification — the single authoritative PRD. Grounded in ten deep-research rounds, both parent apps (the original InTown PRD and the as-built Europe Trip Map app), a survey of the current codebase, and all owner decisions. The complete reasoning trail behind every choice here lives in `LEARNINGS.md`.
-> **Date:** 2026-07-04.
+> **Status:** Production specification — the single authoritative PRD, **ready to implement**. Grounded in ten deep-research rounds, both parent apps (the original InTown PRD and the as-built Europe Trip Map app), a survey of the current codebase, and all owner decisions. The complete reasoning trail lives in `LEARNINGS.md`; the verified UI/UX evidence base lives in `UI_UX_RESEARCH.md` (all claims adversarially verified 2026-07-04 — zero refuted).
+> **Date:** 2026-07-04 (v2: verified Color System v2 in §17, corrected research claims, parallel work-package implementation plan in §18).
+> **⚠️ Codebase directive:** the existing `Frontend_Website/` is a design-era mock (placeholder map, fake generation, hardcoded data) whose only value — the UX flow ideas and lessons — is already absorbed into this document. **It is scrap. WP-0 (§18) deletes it entirely and the architecture starts from scratch.** No code in this repository is to be treated as a foundation; this PRD is the foundation.
 > **Vision in one line:** *A traveler normally needs 100+ hours of YouTube videos and blog posts to plan the perfect city trip. InTown reads all of it, verifies it, personalizes it, schedules it, and then walks the trip with you — offline.*
 
 ---
@@ -11,7 +12,10 @@
 - **📐 Behavior** — the requirement.
 - **⚙️ Mechanics** — implementation approach.
 - **🧭 Lesson** — carried from a parent app (ET = Europe Trip app, IT = InTown v1) or research, and why.
-- **[P1] [P2] [P3]** — delivery phase tags (§18). Everything is specified now; phases only sequence the build.
+- **[P1] [P2] [P3]** — delivery phase tags. Everything is specified now; phases only sequence the build.
+- **[WP-n]** — work-package assignment (§18): the independently-implementable unit that owns this feature.
+
+**For the implementing model (the "workhorse"):** this PRD is written to be executed without interpretation. The rules of engagement are in §18.2 and are binding: implement exactly what is specified, only inside your work package's file ownership, mocking everything outside it against the frozen contracts. **Never assume, never invent, never "improve" beyond the spec.** If something is genuinely ambiguous or contradictory, stop and return a numbered question list to the supervising session ("conductor") instead of guessing.
 
 ---
 
@@ -211,7 +215,7 @@ The **City Brief** (§5.6) additionally carries the city's **food identity**: th
 
 📐 Drag-ranked interests + custom; **anti-preferences first-class** ("skip museums," "no crowds"); dining rules; budget tier; pace; companions default. Evolves from feedback events, transparently ("Your profile learned: museums ↓ — undo?"). Consent-gated (§16.1) with a functional non-personalized mode.
 
-**Progressive profiling — the friction law (research-backed):** no successful travel app front-loads a profile form (Mindtrip, Wanderlog, Airbnb all collect at trip time or infer from behavior); every added required field costs ~3–5% completion, yet a *quiz whose every answer visibly changes the output* increases engagement (Headspace: +7.6pp course starts from a short personalization quiz; Duolingo's long onboarding works because each answer alters the experience). The rule: **ask a question only at the moment its answer visibly changes what the user gets, and never ask at signup what can wait.**
+**Progressive profiling — the friction law (research-backed, claim corrected 2026-07-04):** no successful travel app front-loads a profile form (Mindtrip, Wanderlog, Airbnb all collect at trip time or infer from behavior). **Field count adds friction directionally, but no universal per-field percentage exists** — the once-cited "~3–5% per field" is unsourced practitioner folklore (verification: UI_UX_RESEARCH.md §8.2 Q5; Baymard's finding is that what matters is *default-visible* fields — typical checkouts show ~2× the fields needed). Meanwhile a *quiz whose every answer visibly changes the output* increases engagement (Headspace: +7.6pp course starts from a short personalization quiz; Duolingo's long onboarding works because each answer alters the experience). The rule: **ask a question only at the moment its answer visibly changes what the user gets, and never ask at signup what can wait.** **Endowed-progress rule (verified — Nunes & Drèze 2006, 34% vs 19% completion):** the quiz progress bar starts with a *genuinely earned* first step pre-completed ("City selected ✓ — 1 of 6") — never an arbitrary fake head-start; a real reason for the endowment is what makes the effect work.
 
 | Moment | Collect | Why here |
 |---|---|---|
@@ -233,23 +237,23 @@ Every stored answer must later surface as a visible **"because you said X" chip*
 - Creator = **Owner** (delete trip, dates/city, manage members + roles, transfer). **Editors** curate, vote, generate, edit stops, upload docs. **Viewers** read + download offline bundle (documents only if shared to them — TripIt pattern).
 - **Invites:** share link with embedded role, expiring + revocable; email optional. Covers the "6 people in a group chat" reality.
 - **One shared curation list + votes** (owner decision): anyone with edit rights reorders/removes; every member votes 👍/👎 per place; attribution on every action ("moved up by Ana").
-- **Preference merge:** hard constraints (dietary, mobility, budget caps) = **filters** — anyone's "no pork" governs all meal picks; trivially explainable veto. Soft interests = **average-with-misery-threshold** (a place any member vetoes or scores very low is excluded or flagged — the empirically user-preferred strategy in tourism group-recommender studies). **Disagreement always displayed** ("3 of 4 want this") — research: the explanation drives perceived fairness more than the algorithm. Fairness rotation across days ("today leans Alice") designed-for, shipped [P3].
+- **Preference merge:** hard constraints (dietary, mobility, budget caps) = **filters** — anyone's "no pork" governs all meal picks; trivially explainable veto. Soft interests = **average-with-misery-threshold** (a place any member vetoes or scores very low is excluded or flagged — the empirically user-preferred strategy in tourism group-recommender studies; Masthoff line). **Disagreement always displayed** ("3 of 4 want this") — **claim corrected 2026-07-04 (UI_UX_RESEARCH.md §8.3 Q1): the fairness carrier is the merge *strategy* itself, not explanation prose** (Barile et al., UMUAI 2023, N=399+288: explanations added no measurable fairness benefit; dictatorship-like strategies are punished — Najafian et al., ACM Hypertext 2020). The chips are kept as *transparency*, with two hard rules: (a) **preference disclosures are aggregate counts only** ("3 of 4"), never named attribution ("Ana vetoed this") — naming the dissenter raises privacy concern, worst for a minority-of-one (Najafian et al., UMAP 2021); (b) collaboration *actions* (who dragged, who added) remain attributed — that's edit history, not preference exposure. Optional misery chip ("nobody rated this below 2") maps onto users' native fairness intuitions. Fairness rotation across days ("today leans Alice") designed-for, shipped [P3].
 - One shared itinerary per trip (the group moves together).
 ⚙️ Supabase Realtime **Broadcast** (broadcast-from-DB triggers, sub-50ms) + **Presence** (avatars, "viewing" indicators). Postgres is the single source of truth; per-column LWW with server timestamps; optimistic UI reconciled on broadcast; **fractional indexing** for order (string keys, only the moved row written, jitter against concurrent inserts, periodic rebalance — the Figma pattern; `fractional-indexing` npm). **CRDTs deliberately rejected** — unneeded for row lists.
 
 ### 6.4 Trip setup [P1]
 
-📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users; the existing `Frontend_Website` wizard is the skeleton, restructured to one-question-per-screen with visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
+📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar with endowed first step per §6.2) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users. **Built from scratch per this spec** — the old `Frontend_Website` wizard is deleted with the rest of the mock frontend (WP-0); its only surviving contribution is the flow idea, which this section now fully specifies: one question per screen, visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
 
 ### 6.5 Research pipeline UX [P1]
 
-📐 Staged and visible, never a blind spinner — this is the **Labor Illusion** deployed deliberately (Buell & Norton: users *prefer* a travel search that takes 60s while showing its work over instant identical results, and value the result more). Stream a live research log echoing the user's own interests — "Reading 34 blog posts and 22 videos about Lisbon…", "Cross-checking opening hours on official sites…", "Checking safety notes and common scams…", "Scoring 61 candidates against your group's tastes…" — **with pins dropping onto the map live as places are found**, and results streaming into skeleton cards day-by-day (skeletons with slow shimmer, never spinners — measurably higher perceived speed). The slowest moment becomes the most persuasive one. **Cold city:** the honest, simple message (owner decision): *"InTown is researching {city} — we'll notify you as soon as your itinerary is ready."* The user can leave; a push lands on completion. (A skeleton preview may still render early where useful, clearly marked "research in progress.") **Warm city:** longlist in seconds; only staleness re-verification runs. Partial source failures degrade gracefully (labels, not blanks; 🧭 ET reliability doctrine).
+📐 Staged and visible, never a blind spinner — this is the **Labor Illusion** deployed deliberately (Buell & Norton, Management Science 2011, verified: users can *prefer* a travel search showing its work over instant identical results and value the result more; tested waits were 10–60s; the effect requires the shown work to be *real* — fake-looking waits backfire). Stream a live research log echoing the user's own interests — "Reading 34 blog posts and 22 videos about Lisbon…", "Cross-checking opening hours on official sites…", "Checking safety notes and common scams…", "Scoring 61 candidates against your group's tastes…" — **with pins dropping onto the map live as places are found**, and results streaming into skeleton cards day-by-day. **Skeleton claim corrected 2026-07-04 (UI_UX_RESEARCH.md §8.2 Q3): "skeletons feel faster" is folklore-grade (mixed, weak evidence)** — skeletons are used here for *layout stability* and as scaffolding that **populates with genuine partial results** (which shifts the mechanism onto the well-evidenced labor illusion, not perceived-speed claims); use a left-to-right shimmer (beats pulsing in the only empirical comparisons), never an empty pulsing skeleton for long waits. The slowest moment becomes the most persuasive one. **Peak engineering (peak-end rule, verified):** the "your itinerary is ready" reveal is a designed peak moment — camera flyover of the pinned days + the one-line "why this trip fits your group" — not a plain list render. **Cold city:** the honest, simple message (owner decision): *"InTown is researching {city} — we'll notify you as soon as your itinerary is ready."* The user can leave; a push lands on completion. (A skeleton preview may still render early where useful, clearly marked "research in progress.") **Warm city:** longlist in seconds; only staleness re-verification runs. Partial source failures degrade gracefully (labels, not blanks; 🧭 ET reliability doctrine).
 
 ### 6.6 The curation stage [P1]
 
 📐 The product's heart. The pipeline outputs a **prioritized longlist** (~2× plannable count; e.g., 30–40 for 3 days), best-fit first.
 - **Rows:** photo, name, category, one-line significance, "why it fits you/your group," fee badge (Free / €12 / ?), pre-book warning badge, est. duration, caution badge if applicable, vote chips (group).
-- **Interactions:** **priority tiers + drag**: the list is grouped into **Must-see / Want / Maybe** tiers (tier judgments are cognitively cheaper than globally ordering 40 items — pairwise-elicitation research), with **drag-to-reorder** inside and across tiers as the fine-grained priority signal (explicit **drag handles**, never whole-card long-press — it fights scrolling; haptic bump on grab, elevation lift, ~100ms settle, auto-scroll at edges, plus an accessible non-drag fallback "move to…" menu). Also: **remove** (undo tray + restore), **lock must-do** (gold badge — hard solver constraint), **vote**, tap → decision card, **add own places** (search or map tap → appended, attributed), map/list split with numbered pins mirroring the list.
+- **Interactions:** **priority tiers + drag**: the list is grouped into **Must-see / Want / Maybe** tiers (tier judgments are cognitively cheaper than globally ordering 40 items — pairwise-elicitation research), with **drag-to-reorder** inside and across tiers as the fine-grained priority signal (explicit **drag handles**, never whole-card long-press — it fights scrolling; haptic bump on grab, elevation lift, ~100ms settle, auto-scroll at edges, plus an accessible non-drag fallback "move to…" menu). Also: **remove** (undo tray + restore), **lock must-do** (terracotta must-see badge, §17.4 — hard solver constraint), **vote**, tap → decision card, **add own places** (search or map tap → appended, attributed), map/list split with numbered pins mirroring the list.
 - The list is the contract: **only kept places enter the itinerary; the order is a priority weight, not a visit sequence** (the solver decides sequence — §8).
 - Every interaction becomes a learning event (§9). Footer CTA: **"Build my days."** Curation is revisitable anytime; changes re-solve.
 
@@ -257,6 +261,11 @@ Every stored answer must later surface as a visible **"because you said X" chip*
 
 📐 Everything needed to decide, one screen: photo gallery (Commons-first, attributed) · full description + significance (cited) · "why this fits" · opening hours for the trip dates (cited or "N/A + official link", holiday exceptions flagged) · **Entry: full age/status tariff table where published** — stored as `{tier, age_range, residency_condition, price, ID_required}` (adult / child / youth / senior / student + free-entry rules: EU under-26, first-Sunday-free, 65+ reductions — residency and ID requirements are first-class, since most discounts are conditional on them), with the **group's own price** computed from member profiles and **"Free for you" highlighted** ("Maria enters free — under-26 EEA; bring ID") · price source + "as of" date · **Booking:** walk-up OK / book recommended / **timed entry — book ~6 weeks ahead** + official ticket link (only) · **Best time to visit** with the *reason* ("sunrise: empty + golden light — per 3 blogs & 2 videos") · computed golden-hour window for photo spots (suncalc, offline) · typical duration (editable) · cautions ("pickpocket hotspot — commonly reported") · accessibility notes · user ratings + reviews (+ web-sentiment until critical mass) · website · all citations tappable.
 Actions: remove / must-do / vote / note / share. Honesty rule everywhere: **unknown = "unknown — check official site," never guessed.**
+
+**Citation & uncertainty UX doctrine (verified evidence, 2026-07-04 — UI_UX_RESEARCH.md §8.2 Q1–Q2):**
+- Citations raise trust even superficially, **and trust collapses when a user checks a citation and it doesn't support the claim** (Ding et al., AAAI 2025). The §14 citation gate is therefore a *trust* feature, not just a quality gate: a displayed citation must actually contain the displayed fact.
+- **Medium transparency beats maximal:** default display = source name + one-line rationale ("per the official site, March 2026"); full provenance (all sources, retrieved-at dates, which conflict rule selected the value) lives one tap deeper (Kizilcec CHI 2016: raw-detail dumps erode trust).
+- **Honest uncertainty does not erode trust — it inoculates it against errors** (Joslyn & LeClerc 2012; van der Bles PNAS 2020). Rules: labels are *specific and numeric*, never vague hedges — "hours unconfirmed as of {date}", "±10 min", "approximate — verify on arrival" — and attach only to decision-relevant facts (hours, prices, departure times, coordinates); no blanket hedging.
 
 ### 6.8 Building the days: anchors, times, deadlines [P1]
 
@@ -267,7 +276,7 @@ Actions: remove / must-do / vote / note / share. Honesty rule everywhere: **unkn
 
 ### 6.9 The plan view [P1]
 
-📐 As v2, confirmed: full-bleed MapLibre map, **day tabs that actually filter content** (🧭 ET gap), Now/Next timeline linked to the map (tap ↔ fly, time-scrub), colored+patterned mode segments with direction arrows, numbered category pins + gold must-do badges + strikethrough closed states, meal slots as first-class entries with one-tap alternates, weather ribbon with proactive nudges, you-are-here dot (ref-counted watchPosition — 🧭 ET), **budget line per day** ("~€47 in entries today") summing cited prices. Every plan change appends a **plan revision** (restore anytime — 🧭 ET gap #1, clobbering made structurally impossible).
+📐 As v2, confirmed: full-bleed MapLibre map, **day tabs that actually filter content** (🧭 ET gap), Now/Next timeline linked to the map (tap ↔ fly, time-scrub), colored+patterned mode segments with direction arrows, numbered category pins + terracotta must-see badges (§17.4) + strikethrough closed states, meal slots as first-class entries with one-tap alternates, weather ribbon with proactive nudges, you-are-here dot (ref-counted watchPosition — 🧭 ET), **budget line per day** ("~€47 in entries today") summing cited prices. Every plan change appends a **plan revision** (restore anytime — 🧭 ET gap #1, clobbering made structurally impossible).
 
 ### 6.10 The map platform [P1]
 
@@ -322,6 +331,7 @@ Actions: remove / must-do / vote / note / share. Honesty rule everywhere: **unkn
 ### 6.18 Companion mode [P1]
 
 📐 On travel days `/trips/:id` opens as companion: pinned Now/Next card with leave-by countdown; arrival detection surfaces card + narration button; quick actions (running late → reconfigure, skip, hungry, closed, go-to-#1); battery discipline (throttled foreground-only GPS, high-accuracy toggle).
+**Glanceability rules (verified — Oulasvirta CHI 2005: attention on the move fragments into 4–8s bursts; Schildbach & Rukzio MobileHCI 2010: walking impairs reading and larger text does NOT fix it, larger targets do):** one primary card per glance; body text ≥17px (§17.6) but the walking fix is **shorter, chunked content** — the Now/Next card carries max 3 information items (destination, leave-by, one transit/context cue); quick actions bottom-anchored in the thumb zone, ≥48dp targets; everything readable in a single 4-second glance.
 
 ### 6.19 Documents & ticket vault [P2 — spec complete, ET-proven]
 
@@ -346,6 +356,8 @@ Actions: remove / must-do / vote / note / share. Honesty rule everywhere: **unkn
   - **Pathfinder** — corrections, price updates, closure reports, reviews (the contributor archetype whose feedback makes the Brain trustworthy).
 - **Themed badge sets** (per city, per season, per milestone: "10 golden-hour summits," "5 cities opened") — collectible, shareable, never pay-to-earn.
 - Design rules: celebration, never coercion (no streak guilt, no dark patterns); contribution impact always shown ("your price update has helped 214 travelers"); leaderboards optional and friends-only by default.
+- **Streak law (verified causal evidence, 2026-07-04 — UI_UX_RESEARCH.md §8.3 Q4):** calendar streaks are structurally wrong for episodic travel and highlighting a *broken* streak measurably reduces engagement vs saying nothing (Silverman & Barasch, JCR 2023). InTown uses **per-trip progress and cumulative lifetime totals** (places opened, cities explored, corrections contributed) — numbers that only ever go up. If any streak-like mechanic is ever added: never headline a break; offer earned freezes/repair windows (Sharif & Shu: costly slack beats rigid goals on persistence, especially after lapses).
+- **Peak-end engineering (verified):** territory-opening celebration and the end-of-trip wrap ("your trip in numbers + memories") are the designed *peak* and *end* of the trip memory — invest polish there disproportionately; achievement + social mechanics are the evidence-backed levers (Xi & Hamari 2019: achievement features are the strongest SDT-need satisfiers; immersion/theming alone is weak).
 ⚙️ Derived entirely from the §9 event log (visits, narration plays, corrections) — zero extra tracking; badge rules are server-side config evaluated on events.
 
 ### 6.22 "Want to go" & social import (Reel/TikTok → places) [P2]
@@ -469,7 +481,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TS + Vite PWA (evolve existing `Frontend_Website`); Zustand; SW + OPFS/Cache Storage/IndexedDB |
+| Frontend | React + TS + Vite PWA — **built from scratch; the existing `Frontend_Website/` is deleted in WP-0 (mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
 | Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
 | POI ingestion (City Brain build) | **Overpass API** (Overpass QL bulk tag sweep per city bbox — viewpoints/museums/parks/historic, incl. unnamed nodes geocoding can't reach): kumi.systems primary, overpass-api.de fallback; **Geoapify Places API** as the degrade path (same open data, managed); self-hosted Overpass deferred (like Nominatim/Photon). Distinct from geocoding — this is the bulk sweep that seeds each Brain (§5.2) |
@@ -506,7 +518,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 **Latency:** warm-city longlist ≤ 30s; cold-city skeleton ≤ 2 min (full brain 5–15 min, notified); solve ≤ 3s; replans ≤ 5s end-to-end; card open < 300ms cached; 60fps map on mid-range Android.
 **Accuracy:** ≥95% displayed facts cited-or-N/A (hard gate); solver feasibility 100% (independent checker); price staleness ≤ 12 months or labeled.
 **Reliability:** every external dependency has a degrade path; missing config → instructional error (🧭 ET); on-device error console in dev builds.
-**Cost ceilings:** §15. **Privacy/GDPR & content law:** §16. **Accessibility:** WCAG AA (IT color system), pattern+color route encoding, transcripts for audio, formal audit pre-launch.
+**Cost ceilings:** §15. **Privacy/GDPR & content law:** §16. **Accessibility:** WCAG 2.2 AA as the legal floor **plus APCA-4g as the perceptual check on every text pair** (Color System v2, §17 — WCAG-2-only checks are provably unreliable near black; two v1 pairs passed WCAG while failing APCA); pattern+color route encoding (CVD-safe, hue never the only channel); transcripts for audio; formal audit pre-launch.
 **Security:** revocable sessions, RLS, rate limits (auth + research + events), server-only keys, path-traversal guards, sanitized rich text, moderation audit log.
 
 ## 14. Guardrails, testing & evaluation
@@ -535,16 +547,96 @@ Schema validation at every LLM boundary (bounded retries → degrade) · citatio
 4. **Safety-content framing:** attributed, dated, "commonly reported by travelers / according to [source]" language; advisories quoted with attribution (State Dept public domain; FCDO/AA open licenses); **never rank anything "safe"**; prominent disclaimer (aggregated third-party information, not advice). Risk is asymmetric — warn freely, certify nothing.
 5. **Content ingestion posture:** YouTube only via Gemini URL ingestion (paid tier — contractually cleanest; no yt-dlp, no transcript scraping); store only derived atomic facts with attribution + links (facts aren't copyrightable — Feist); quotes ≤1 sentence; blog/forum prose never republished; **Google Maps content never persisted beyond ToS — only `place_id` stored (permitted indefinitely); lat/lng and other content cached ≤30 days then re-fetched, and never relabeled as open data (§5.5)**; Geoapify/OSM/Commons/Wikidata data is open-licensed and storable, attributed per license. Freedom-to-operate glance at US 9,127,957 (weather-based indoor/outdoor scheduling) before launch.
 
-## 17. Design system
+## 17. Design system — InTown Color System v2 (verified, owner-approved 2026-07-04) [WP-1 owns; every UI WP consumes]
 
-**InTown Color System v1** (inherited from the original InTown PRD, inlined here as the source of truth):
-- **Brand:** Primary InTown Blue `#2563EB` · Accent Jade `#10B981` · Highlight Iris `#7C3AED` (sparingly) · Slate neutrals `#F8FAFC / #FFFFFF / #E2E8F0 / #94A3B8 / #0F172A` · Semantic: success `#22C55E`, warning `#F59E0B`, error `#EF4444`.
-- **Light mode:** bg `#F8FAFC`, surface `#FFFFFF`, text `#0F172A` / secondary `#475569`, borders `#E2E8F0`, primary CTA `#2563EB` (pressed `#1E40AF`, on-primary `#FFFFFF`), accent chips `#10B981` (pressed `#047857`).
-- **Dark mode:** bg `#0B1220`, surface `#111827`, text `#F8FAFC` / secondary `#94A3B8`, borders `#1F2937`, primary `#60A5FA` (pressed `#3B82F6`, on-primary `#0B1220`), accent `#34D399`.
-- **Route segments (color + pattern for color-blind safety):** walking `#22C55E` dashed · public transit `#3B82F6` solid · driving `#F59E0B` solid thicker · bike `#84CC16` / ferry `#06B6D4` optional. Active route 85% opacity, future steps 45%.
-- **Pins (category color → icon):** photo spots `#D946EF` · hidden viewpoints `#06B6D4` · art `#F97316` · history `#6366F1` · museum `#3B82F6` · food `#10B981`. Selected ring `#2563EB` + white inner (light) / `#111827` (dark); closed = `#94A3B8` fill + strikethrough label; must-see = gold badge `#F59E0B`.
-- **Bars:** frosted bottom bar (white @92% blur light / `#111827` @96% dark); all text/CTA combinations WCAG AA.
-The existing frontend implements a close variant — align tokens in the polish pass. New additions needed: caution badge style, verified-visit badge, disagreement chips, fact-citation chips with as-of dates, presence avatars.
+> **Supersedes v1 entirely.** The v1 palette (inherited from the original InTown PRD) had three text/fill combinations that failed WCAG AA outright (white on `#10B981` = 2.54:1, on `#F59E0B` = 2.15:1, on `#22C55E` = 2.28:1) and two dark-mode pairs that passed WCAG 2 while failing perceptual contrast (APCA) — the audit is in `UI_UX_RESEARCH.md` §8.4. v2 is the owner-approved **"A×C hybrid": trusted blue on warm sand, terracotta saved for the peaks.** Every pair below is computed-verified against **WCAG 2.2 AA (legal floor) + APCA-4g (perceptual check)**; the ratios are stated so CI can re-assert them (§17.9). Evidence base: saturated blue is the best-supported trust/calm hue; lightness carries positive valence (warm *light* ground); warm hues raise arousal — correct for celebration peaks, wrong for chrome (`UI_UX_RESEARCH.md` §3.C, §4, §8).
+
+### 17.1 The five seeds & the derivation law
+
+| Seed | Hex | Role |
+|---|---|---|
+| **InTown Blue** | `#2563EB` | Primary: every CTA, link, selection ring, transit route. The single trust-carrying hue. |
+| **Sand** | `#FAF7F2` | The light-mode ground. This is where the warmth lives — never in chrome saturation. |
+| **Ink** | `#1C1917` | Text and dark-mode surfaces. Warm-neutral (stone family), never cold slate, never brown. |
+| **Terracotta** | `#C2410C` | The peak color: must-see badges, golden-hour chips, territory-opening + "plan ready" celebrations. **Nothing else.** |
+| **Jade** | `#047857` | Positive affordances: group-agreement chips, success, walking routes. |
+
+**Derivation law:** all tints/shades (50–900 ramps) are generated in **OKLCH** — fixed hue + chroma, stepped lightness — never hand-picked hex or HSL (HSL lightness is hue-dependent and silently breaks contrast; verified). Gamut-check every generated color for sRGB. Never generate into the universally-disliked dark yellow-green zone (HCT hue 90–111, chroma >16, tone <65 — Material's dislike-analyzer bound, relevant when tinting jade). Any new color pair used for text must be re-verified against §17.9 thresholds before merge.
+
+### 17.2 Light mode tokens (the daylight default)
+
+| Token | Value | Verified contrast |
+|---|---|---|
+| `bg` | `#FAF7F2` (sand) | — |
+| `surface` (cards) | `#FFFFFF` | — |
+| `text` | `#1C1917` | 16.4:1 on bg / 17.5:1 on surface · Lc 100/104 |
+| `text-secondary` | `#57534E` | 7.1:1 / 7.6:1 · Lc 82/87 |
+| `text-tertiary` (metadata rows only) | `#79716B` | 4.5:1 · Lc 69 |
+| `border` | `#E7E5E4` | non-text |
+| `primary` + `on-primary` | `#2563EB` + `#FFFFFF` | 5.2:1 · Lc 80 |
+| `primary-pressed` | `#1E40AF` + `#FFFFFF` | 8.7:1 · Lc 94 |
+| `link` / primary-as-text | `#1D4ED8` | 6.3:1 on sand · Lc 78 |
+| `jade` fill + label | `#047857` + `#FFFFFF` | 5.5:1 · Lc 82 |
+| `jade-chip` | bg `#D1FAE5` + text `#065F46` | 6.8:1 · Lc 78 |
+| `terracotta` fill + label | `#C2410C` + `#FFFFFF` | 5.2:1 · Lc 80 |
+| `terracotta-chip` | bg `#FFEDD5` + text `#9A3412` | 6.4:1 · Lc 75 |
+| `warning` | `#F59E0B` + **dark text `#451A03`** (never white) | 7.0:1 · Lc 58 (≥14px bold) |
+| `error` | `#B91C1C` + `#FFFFFF`; as text `#B91C1C` on sand | 6.5:1 · Lc 85 / 6.1:1 · Lc 76 |
+| `success` | `#15803D` + `#FFFFFF` | 5.0:1 · Lc 80 |
+
+### 17.3 Dark mode tokens (night & OLED)
+
+**Theme default = system (`prefers-color-scheme`) with an in-app override** — evidence: positive polarity (light) reads better, especially at small sizes and in daylight; dark saves meaningful OLED battery only at high brightness; preference splits roughly in thirds (verified, `UI_UX_RESEARCH.md` §8.3 Q3). **Dark surfaces stay warm-neutral, never brown** — warmth survives as glowing text accents. The basemap gets a **true dark tile style, never CSS inversion**.
+
+| Token | Value | Verified contrast |
+|---|---|---|
+| `bg` | `#0C0A09` | — |
+| `surface` | `#1C1917` | — |
+| `text` | `#FAFAF9` | 18.9:1 / 16.7:1 · Lc 104/103 |
+| `text-secondary` | `#D6D3D1` | 13.3:1 / 11.7:1 · Lc 80/79 |
+| `text-tertiary` (metadata) | `#BFB8B2` | 8.9:1 on surface · Lc 63 |
+| `border` | `#292524` | non-text |
+| `primary` CTA fill + label | `#60A5FA` + `#0C0A09` | 7.8:1 · Lc 54 — **CTA labels ≥16px semibold** (APCA large-text tier) |
+| `primary-pressed` | `#3B82F6` + `#FFFFFF` (white label, not dark) | 3.7:1 (transient state; passes 3:1 UI/large) · Lc 69 |
+| `link` / primary-as-text | `#93C5FD` | 9.7:1 · Lc 68 |
+| `jade` as text/icon | `#34D399` | 9.1:1 · Lc 65 |
+| `jade-chip` | bg `#064E3B` + text `#A7F3D0` | high |
+| `terracotta` as text | `#FDBA74` | 10.4:1 · Lc 72 |
+| `terracotta` fill + label | `#C2410C` + `#FFFFFF` (fills keep light-mode pair) | 5.2:1 · Lc 80 |
+| `terracotta-chip` | bg `#7C2D12` + text `#FED7AA` | high |
+| `warning` as text | `#FBBF24` | 10.5:1 · Lc 72 |
+| `error` as body text | `#FCA5A5` (icons/large may use `#F87171`) | 9.2:1 · Lc 65 |
+| `success` as text | `#4ADE80` | Lc ~80 |
+
+### 17.4 Map layer: routes, pins, badges (CVD-safe — hue is never the only channel)
+
+Verified basis: color-vision deficiency does not reduce text readability (luminance contrast does that) but does impair map hue discrimination — so every categorical encoding pairs color with **shape/pattern/weight**, anchored on the Okabe–Ito CVD-safe set and OKLCH-tuned to the brand:
+
+- **Route segments:** walking = jade **dashed** (`#15803D` light / `#34D399` dark) · public transit = blue **solid** (`#2563EB` / `#60A5FA`) · driving = ochre **thick** (`#B45309` / `#FBBF24`) · bike = **dotted** teal `#0F766E` · ferry = **wave-dashed** sky `#56B4E9`. Active route 85% opacity, future steps 45%. Adjacent modes must differ in lightness, not only hue.
+- **Pins (category color + distinct icon glyph, always):** photo spots `#D55E00`-derived · viewpoints `#56B4E9`-derived · art `#E69F00`-derived · history `#7C3AED`-derived · museum `#2563EB` · food `#047857`. Selected ring `#2563EB` + white inner (light) / `#1C1917` inner (dark); closed = `#79716B` fill + strikethrough label. Final pin ramp is generated in WP-1 by the §17.1 derivation law with lightness separation between adjacent categories, then locked into the contracts package.
+- **Must-see badge = terracotta `#C2410C` + white** (v1's gold is retired — amber now means *warning only*, one meaning per color). Caution badge = `warning` tokens. Verified-visit badge = `jade` tokens. Fact-citation chips (with as-of dates) = neutral surface + `link`-colored source name. Disagreement chips = `jade-chip` (agree-count) / neutral (split). Presence avatars = neutral ring, `primary` ring for the active editor.
+- **Basemap:** desaturated/muted under any overlay UI (verified Apple HIG rule) so pins, routes, and cards pop; controls over the map get a thin stroke or light drop shadow for contrast at any zoom.
+
+### 17.5 Usage laws (what keeps it professional)
+
+1. **60/30/10 with a warmth budget:** ground ≈60%, text/structure ≈30%, all accent color ≤10% of any screen — and **max one warm (terracotta) element per view**; a second warm signal drops to its pale chip form.
+2. **Blue = function, terracotta = emotion.** Blue is always tappable/actionable; terracotta always announces something special (must-see, golden hour, celebration). Never cross these. Iris/violet `#7C3AED` survives only inside the history-pin category — it is no longer a UI accent.
+3. **Error ≠ terracotta:** error is the deeper `#B91C1C` red family and always carries an icon; terracotta never appears on destructive or failure UI.
+4. **Never white body text on jade/amber/success fills** (the v1 failures). Fills that carry white text must be ≥ the 700-shade (`#047857`, `#B91C1C`, `#15803D`); amber always takes dark text.
+5. **Lightness before hue:** any two adjacent meaningful colors (route modes, chip states) must differ in perceived lightness (OKLCH L), not only hue.
+
+### 17.6 Typography & ergonomics (verified)
+
+- **Face:** `system-ui` stack (native feel per the PWA doctrine — verified web.dev guidance); `ui-monospace` for numbers that align (prices, times in tables); `font-variant-numeric: tabular-nums` on all time/price columns.
+- **Sizes:** body ≥16px (M3 Body Large) — **companion mode ≥17px**; metadata rows ≥13px only in `text-tertiary` roles; type scale fixed in the tokens package. Respect OS text scaling (rem/sp everywhere, Dynamic-Type-compatible).
+- **Walking law (verified — Schildbach & Rukzio):** bigger text does *not* fix reading-while-walking; bigger targets and shorter content do. Companion-mode content is chunked to ≤3 items per card; line length 30–45 characters on phones, never shorter.
+- **Touch:** every interactive target ≥48dp (≥9.2mm verified floor); primary actions bottom-anchored in the thumb zone (bottom/center = highest reach comfort; top corners = worst, reserved for rare/destructive actions); edge controls sit flush to the edge.
+
+### 17.7 Structure & motion
+
+- **Bottom sheet (M3 tokens, verified against Google's component source):** standard (non-modal) sheet co-existing with the interactive map; **three detents** (peek / half / full, half ratio 0.5); container `surfaceContainerLow`-equivalent (`surface` token); **28dp top corner radius**; 1dp elevation; max width 640dp on large screens; drag-settle velocity threshold 500 px/s; **48dp drag handle** with tap-to-cycle + accessible alternatives; peek state tall enough to signal content; **the selected pin stays visible when the sheet opens** (offset the camera or point the card at the pin — verified HIG rule).
+- **Motion:** springy sheet physics, pin-drop animations during research streaming, map-camera choreography on day switch, haptics on reorder; shimmer (left→right) on loading skeletons; `prefers-reduced-motion` honored everywhere; CSS Scroll Snap for day tabs/carousels.
+- **PWA native feel (verified web.dev):** app-shell model — the app *never* opens empty offline; `user-select:none` on chrome only (never content); `overscroll-behavior` for pull-to-refresh; manifest `display: standalone` + `theme-color` per theme; Persistent Storage API for bundles.
 
 **The itinerary UI pattern (research-validated — "this is a UI play"):**
 - **Macro-layout:** full-bleed map canvas + **persistent non-modal bottom sheet with three detents** (peek / half / full — Google Maps model; the map stays interactive behind the sheet, scroll-up expands, drag-down collapses, grabber affordance per Apple HIG / Material 3). Desktop: split map/list (the most design-praised pattern — Wanderlog's "standing ovation" layout).
@@ -553,11 +645,115 @@ The existing frontend implements a close variant — align tokens in the polish 
 - **Cards (decision-dense without clutter):** photo-led, one-line "why for you," one metadata row (price band · open state · duration), **max 2 badges**; everything else behind the tap (Mindtrip's tabbed place card is the reference).
 - **Micro-delight checklist:** haptics on reorder, springy sheet physics, pin-drop animations during research streaming, map camera choreography on day switch, "because you said X" chips — the details reviewers actually reward.
 
-## 18. Roadmap
+### 17.8 Cross-cutting UX doctrine (each rule verified; details in `UI_UX_RESEARCH.md` §8)
 
-**Phase 1 — the core product:** accounts + traveler/taste profiles + consent · trips, invites, roles, shared curation + votes + realtime · City Brain v1 (open-data skeleton + blog/official-site research + YouTube-via-Gemini + advisories; on-the-go, per-city) · longlist + decision cards (prices/pre-book/best-time cited; cautions; Commons photos) · City Brief incl. transit-pass advisor · start/departure anchors + buffers → OR-Tools engine (priorities, hours, holidays, meals, weather, golden hour, deadlines) · plan view + map platform + Google Maps leg deep-links + scenic notes · reconfigure + go-now + closed-now · on-demand narration + "prepare my trip" · **full offline incl. basemap** · post-visit corrections capture + ratings capture · event log + v1 learning + replay harness · push notifications (booking deadlines, research-complete, leave-by) · budget line.
-**Phase 2 — depth & community:** **per-city payments go live** (P1 launches as free/beta to seed City Brains and validate willingness-to-pay) · document/ticket vault (ET port) · public reviews + DSA/Omnibus moderation surface · **multi-city chaining** with inter-city legs + luggage logistics · **gamification & roles** (§6.21) · **Want-to-go social import** (§6.22) · email digests (booking deadlines) · LambdaMART + interleaving · multi-language narration · TWA on Play Store · offline reconfigure polish · shareable read-only trip links.
-**Phase 3 — expansion:** React Native/Expo native app · embeddings + bandits · group fairness rotation · trip journal/memories · community guides (curated lists from anonymized aggregate behavior) · affiliate experiment (if ever, per decision).
+| Rule | Evidence anchor | Where it binds |
+|---|---|---|
+| Citations must actually support the displayed fact; source + one-line rationale by default, full provenance one tap deeper | Ding AAAI 2025; Kizilcec CHI 2016 | §6.7, §14 gate |
+| Uncertainty labels: specific + numeric, decision-relevant facts only, never vague hedges | Joslyn & LeClerc 2012; van der Bles PNAS 2020 | §5.5, §6.7, §6.8 |
+| Waiting: show real work (labor illusion); skeletons for layout stability filled with genuine partial results; shimmer not pulse; never claim/rely on "skeletons feel faster" | Buell & Norton 2011 (verified); skeleton evidence mixed | §6.5 |
+| Endowed progress with a real reason ("City selected ✓ — 1 of 6") | Nunes & Drèze 2006 (34% vs 19%) | §6.2, §6.4 |
+| Peaks & endings get disproportionate polish: plan-ready reveal, territory celebration, trip wrap | Peak-end rule (Redelmeier & Kahneman 1996) | §6.5, §6.21 |
+| No punitive streaks; cumulative/per-trip progress instead; achievement + social mechanics over theming | Silverman & Barasch JCR 2023; Sharif & Shu; Xi & Hamari 2019 | §6.21 |
+| Group fairness lives in the merge strategy; preference disclosures aggregate-only, never named | Barile UMUAI 2023; Najafian UMAP 2021 | §6.3 |
+| One-handed reality: primary controls bottom/center, ≥48dp, glanceable 4–8s bursts | Hoober 2013; Parhi 2006; Oulasvirta 2005 | §6.18, §17.6 |
+| Aesthetic polish is functional: perceived beauty → perceived usability (r≈.59–.92) | Kurosu & Kashimura 1995; Tractinsky 1997 | everywhere |
+
+### 17.9 Design-system enforcement (CI)
+
+The contracts package (§18.3) ships the tokens as data (`design-tokens.json`) **plus a contrast-assertion test**: every declared text/background pair is recomputed (WCAG 2.2 relative luminance + APCA-4g) on every CI run and must meet its declared role's floor — body text ≥4.5:1 **and** ≥Lc 75; large/semibold ≥3:1 **and** ≥Lc 45; non-text UI ≥3:1. A token change that breaks a floor fails the build. This makes §17.2–17.4 self-verifying rather than aspirational (the v1 palette shipped "all combinations WCAG AA" as prose and was wrong; v2 makes it a test).
+
+## 18. Implementation plan — independent work packages, parallel-safe by construction
+
+> **This section replaces the old linear roadmap.** The build is decomposed into **work packages (WPs)**: units sized for one focused implementation session each, with **disjoint file ownership** and **frozen shared contracts**, so any two WPs can be built in parallel sessions (or one by one — the structure supports both) and merged later with near-zero conflict surface. P1/P2/P3 phase tags still describe *product* sequencing; WPs describe *build* sequencing.
+
+### 18.1 Operating model: conductor and workhorse
+
+- **Conductor** (supervising session — Fable 5): owns this PRD, the contracts, WP assignment, contract-change approval, merge sessions, and acceptance.
+- **Workhorse** (implementing session — Opus 4.8): executes exactly one WP per session, per §18.2. The workhorse's job is faithful execution, not product judgment.
+- Typical usage: *"Implement WP-4 per FINAL_PRD.md §18. Follow §18.2 strictly."* — one session. Another session runs WP-5 in parallel. A third session later runs *"Merge WP-4 and WP-5 per §18.6."*
+
+### 18.2 Workhorse rules of engagement (binding, non-negotiable)
+
+1. **Scope is law.** Write only inside your WP's **Owns** paths (§18.4). Never create, edit, or delete a file outside them. If your WP seems to need a change elsewhere, stop and report — do not make it.
+2. **Contracts are frozen.** `packages/contracts/**` is read-only for every WP except WP-0. If a contract is wrong or missing, stop and produce a **contract-change request** (what, why, exact proposed diff) for the conductor. Never work around a contract, never fork a type locally.
+3. **No assumptions, no inventions.** Everything you need is specified in this PRD (the referenced §§ per WP) or in the contracts. If something is genuinely ambiguous, underspecified, or contradictory: **stop and return a numbered question list.** Do not pick "the reasonable option" silently. Do not add features, options, settings, or "improvements" that are not in the spec. Do not upgrade/downgrade specified libraries or swap specified technologies.
+4. **Mock across boundaries.** Anything outside your WP is consumed via the contracts package's types + fixtures (§18.3). Never import another WP's source. Never stub a contract with invented shapes — use the fixtures.
+5. **Branch discipline.** Work on `wp/<n>-<slug>` (e.g., `wp/04-city-brain`), branched from the commit where WP-0 landed on `main` (or latest `main` if later WPs have merged — never from another unmerged WP branch). Commit messages: `WP-<n>: <imperative summary>`. Push only your own branch.
+6. **Definition of done is a gate, not a suggestion.** A WP is complete only when every DoD item (§18.4) passes locally: typecheck, lint, unit tests, the WP's own verification script, and the §17.9 contrast test where UI is touched. Report results honestly — a failing test is reported as failing, never papered over.
+7. **Self-contained proof.** Every WP ships a `VERIFY.md` in its owned area: exact commands to run its tests/demo against fixtures, so the merge session can validate it without re-reading the diff.
+
+### 18.3 WP-0 — Foundations (must land first; everything else branches after it)
+
+**The one serializing step.** One session, conductor-reviewed, merged to `main` before any parallel WP starts.
+
+- **Scrap the mock frontend:** `git rm -r Frontend_Website/` — per the §0 directive, zero code reuse.
+- **Monorepo scaffold** (pnpm workspaces + Python services):
+
+```
+/packages/contracts      ← THE frozen boundary (WP-0 only may write):
+    types/               TS types + zod schemas for every entity (§10) and API route (§11)
+    api/                 route contracts: method, path, auth, request/response schemas, SSE event shapes
+    design-tokens.json   §17.2–17.4 tokens verbatim + role→floor declarations (§17.9)
+    fixtures/            golden fixtures: 1 sample City Brain slice (POIs+facts+geo-observations),
+                         1 longlist (30 places), 1 solved 3-day plan, profiles, trip+members,
+                         SSE research-progress event stream, solver request/response pairs
+    events/              §9.1 event-type catalog (names + payload schemas + consent flags)
+/packages/ui-tokens      generated CSS vars/Tailwind preset from design-tokens.json (build artifact)
+/packages/offline-solver greedy+2-opt on-device re-solver (pure TS, no deps on app code)
+/apps/web                the PWA (owned by frontend WPs, per §18.4 path map)
+/apps/api                Fastify API (owned by backend WPs, per path map)
+/services/pipeline       Python research/ingestion workers
+/services/solver         Python OR-Tools service
+/db/migrations           the complete §10 schema as the baseline chain — schema changes after WP-0
+                         are contract changes (conductor approval; append-only migrations)
+/infra                   docker-compose.dev (Postgres+PostGIS, MinIO, Supabase Realtime container,
+                         OSRM stub), CI workflows, deploy scripts (§12.1)
+```
+
+- **CI skeleton:** typecheck + lint + unit tests per workspace; §17.9 contrast assertion; migration-chain check; golden-fixture schema validation (fixtures must always parse against the contracts — the honesty check that keeps mocks real).
+- **DoD:** `docker compose up` gives a healthy dev stack; `pnpm test` green; fixtures validate; `Frontend_Website/` gone; `README.md` maps every path to its owning WP.
+
+### 18.4 The work packages (P1 product scope)
+
+Each entry: **Owns** (exclusive write paths) · **Implements** (binding spec sections) · **Consumes** (contracts only) · **DoD** (beyond §18.2's universal gates). All WPs below can run **in parallel** after WP-0, except where a hard note says otherwise.
+
+| WP | Name | Owns (write paths) | Implements | DoD highlights |
+|---|---|---|---|---|
+| **WP-1** | Design system & app shell | `apps/web/src/{design-system,app-shell,routes-scaffold}`, `packages/ui-tokens` | §17 complete; §4 route scaffold (empty screens); theme system (system default + override); PWA manifest/icons/install prompts (🧭 ET gap #5) | Storybook (or ladle) rendering every component in both themes; §17.9 test green; pin-category ramp generated + written back to contracts via change request; Lighthouse PWA installable |
+| **WP-2** | Map platform | `apps/web/src/map` | §6.10; §17.4 map layer; §17.7 bottom sheet ↔ map behavior; muted + true-dark basemap styles | Renders fixture city PMTiles offline; pins/clusters/routes from fixture longlist+plan; 3-detent sheet with selected-pin-visible rule; 60fps pan on mid-range Android profile |
+| **WP-3** | Auth, profiles & onboarding | `apps/web/src/{auth,onboarding,settings}`, `apps/api/src/{auth,profile,consents}` | §6.1, §6.2, §6.4 (quiz incl. photo-swipes, endowed progress), §16.1 consent, GDPR export/delete | Full quiz flow against fixtures; magic-link + Google OAuth against dev stack; revocable sessions (🧭 ET gap #8); consent gates event flag correctly |
+| **WP-4** | City Brain | `services/pipeline/brain`, `apps/api/src/pois` | §5 complete: ingestion (Overpass/Wikidata/Commons/advisories/holidays), atomic facts + conflict hierarchy, entity resolution, geo-observation log + expiry purge, viewshed test, TTL janitor; `GET /api/pois*`, `GET /api/cities/:id/brief` data side | Builds a real Brain for 1 golden city from recorded HTTP fixtures (no live calls in CI); resolution/dedup tests; provenance-never-rewritten test; coordinate display-gate unit tests (≥2-source/100m rule) |
+| **WP-5** | Research pipeline | `services/pipeline/research`, `apps/api/src/research` | §7 stages 0–3+5; §5.3 prompts (source hierarchy verbatim); §6.5 SSE stage events (shape from contracts); citation + coordinate gates (§14); cost meters (§15) | Zod-validated LLM I/O with bounded retries→degrade; SSE stream matches fixture event shapes; gate tests: uncited fact rejected, LLM coordinate rejected; per-stage cost metering emits |
+| **WP-6** | Solver service | `services/solver`, `packages/offline-solver` | §8 complete (every encoding-table row), warm-start replans, independent feasibility checker, CP-SAT auditor (CI), on-device greedy+2-opt | Solves fixture request in <3s incl. golden-hour clones, weather multipliers, deadline buffers; replan warm-start <1s on fixture; feasibility checker rejects a seeded-infeasible fixture; determinism test |
+| **WP-7** | Trips & collaboration | `apps/web/src/{trips,curation}`, `apps/api/src/{trips,members,invites,places,votes}` | §6.3 (roles/invites/merge rules incl. aggregate-only disclosure), §6.6 curation (tiers+drag+fractional indexing+undo), realtime broadcast/presence | Two-browser realtime demo script; fractional-index conflict test; misery-threshold merge unit tests; disagreement chips aggregate-only (assertion test); RLS/ownership checks (🧭 ET gap #11) |
+| **WP-8** | Plan view, decision cards & companion | `apps/web/src/{plan,cards,companion,research-progress}` | §6.5 (progress UX incl. peak reveal), §6.7 (cards + citation/uncertainty doctrine), §6.9, §6.12 UI, §6.18 (glanceability rules) | Full plan/companion flows against fixtures incl. SSE replay; day tabs filter (🧭 ET gap #7); selection state machine (§4); citation tap-through renders provenance layer; leave-by countdown logic unit-tested |
+| **WP-9** | Offline & PWA runtime | `apps/web/src/{offline,sw}`, `apps/web/sw.ts` | §6.17 complete: bundles, OPFS PMTiles, Cache Storage media, IndexedDB metadata, `storage.persist()`, reachability heartbeat (🧭 gap #6), automated SW versioning (🧭 gap #10), manifest reconciliation, `/offline` vault shell | Playwright airplane-mode E2E: map renders, cards + deep texts readable, edits queue and sync on reconnect; bundle ≤150MB assertion on fixture city |
+| **WP-10** | Geo services & adaptation APIs | `apps/api/src/{geo,plan}`, `infra/osrm` | §6.8 anchors/buffers, §6.11 (deep links, scenic legs, pass-advisor math), §6.12 API side (reconfigure/go-now/closed-now orchestrating WP-6's service), plan revisions (append-only, 🧭 gap #1), `GET .../bundle` manifest | Replan round-trip ≤5s against solver fixture-service; deep-link URLs match §6.11 format exactly; revision append+restore tests; buffer defaults by age band unit-tested |
+| **WP-11** | Narration, City Brief & safety UI | `services/pipeline/narration`, `apps/api/src/narration`, `apps/web/src/{brief,safety}` | §6.13 (deep text + on-demand TTS + global cache + offline fallback), §5.6/§6.14 surfaces, §16.4 framing rules | Deep text generated from fixture facts with citations; MP3 cached-once semantics test; offline fallback shows text (never a silent gap — 🧭 gap #4); framing linter (no "safe" language) |
+| **WP-12** | Events, learning v1 & replay harness | `apps/api/src/events`, `services/pipeline/learning` | §9.1 (catalog from contracts), §9.2 v1 (weights, preference summary, Bayesian priors), §9.4 harness + golden-city eval skeleton, §6.15 capture side | Append-only enforced (no UPDATE grant test); impression logging with algo_version; NDCG@k/Kendall-τ computed on fixture sessions; consent-flag respected end-to-end |
+| **WP-13** | Notifications | `apps/api/src/push`, `apps/web/src/notifications` | §6.16 P1 scope (web push VAPID, booking-deadline, research-complete, leave-by, opt-in per category) | Push round-trip in dev stack; deadline scheduler unit tests (6-week Alhambra fixture case); all categories opt-in-default-off verified |
+
+**P2/P3 work packages** (same protocol, defined when scheduled): WP-14 vault (§6.19) · WP-15 multi-city (§6.20) · WP-16 payments (§15) · WP-17 reviews+moderation surface (§6.15/§16.2–3) · WP-18 gamification (§6.21) · WP-19 social import (§6.22) · WP-20 LambdaMART+interleaving (§9.2) · WP-21 TWA/Play Store · P3: native app, embeddings/bandits, fairness rotation.
+
+### 18.5 Dependency truth (what parallel really means)
+
+- **Hard order:** WP-0 → everything. Nothing else is hard-ordered: every WP builds and tests against contracts + fixtures, not against other WPs.
+- **Soft affinities (merge earlier together, build in any order):** WP-1→(2,3,7,8,9) visually; WP-6→10 functionally; WP-4→5 functionally.
+- **The fixtures are the decoupling mechanism.** WP-8 builds the plan view against the fixture plan long before WP-6 exists; WP-5 emits SSE events matching the fixture stream WP-8 already replays. If a fixture proves wrong, that's a contract change (§18.2 rule 2) — fixed once, centrally, by the conductor.
+
+### 18.6 Merge sessions (also run by a workhorse, different rules)
+
+A merge session integrates 2+ completed WP branches into `main`:
+
+1. **Order within the session:** rebase each WP branch onto current `main` in ascending WP number; expect near-zero conflicts (disjoint ownership) — any conflict outside `pnpm-lock`/generated files is a protocol violation to report, not silently resolve.
+2. **Gates, in order:** per-WP suites (via each `VERIFY.md`) → cross-WP integration tests for the pairs being merged (the contracts package lists an integration checklist per WP pair, e.g. WP-5×WP-8: live SSE replaces fixture replay identically) → relevant §14 gates (golden-city eval once WP-4+5+6+12 are all in; airplane-mode E2E once WP-2+8+9 are in).
+3. **Write scope of a merge session:** integration glue only, in `apps/*/src/integration` + wiring/config files; bug fixes inside a WP's area are allowed **only** with a logged note per fix (file, cause, why it couldn't wait for the owning WP's session).
+4. **Milestones (suggested, not mandatory):** M1 = 1+2 (visual shell on real map) · M2 = +3 (accounts live) · M3 = 4+5+6 (the intelligence spine, backend-only demo) · M4 = M2+M3+7+8+10 (**the vertical slice: create trip → research → curate → solve → plan view for one golden city — the moment the product exists**) · M5 = +9+11 (offline + narration: the companion promise) · M6 = +12+13 (learning + push: the compounding promise) → P1 feature-complete, §14 full gate suite, beta.
+
+### 18.7 Product phases (unchanged scope, now expressed in WPs)
+
+**P1 — the core product** = WP-0…WP-13 (everything tagged [P1] in §5–§16; launches free/beta to seed City Brains and validate willingness-to-pay). **P2 — depth & community** = WP-14…WP-21 (payments live, vault, public reviews + moderation surface, multi-city, gamification, social import, email digests, LambdaMART, TWA, shareable read-only links). **P3 — expansion** = native app (React Native/Expo), embeddings + bandits, group-fairness rotation, trip journal/memories, community guides, affiliate experiment (if ever).
 
 ## 19. Risks & mitigations
 
@@ -581,4 +777,4 @@ The existing frontend implements a close variant — align tokens in the polish 
 
 ---
 
-*End of PRD. §5–§9 are the build spec; §18 sequences it. Companion document: `LEARNINGS.md` — the full decision log, research findings with sources, and the reasoning behind every choice in this document.*
+*End of PRD. §5–§16 are the build spec; §17 is the design system (verified, CI-enforced); §18 decomposes the build into independently-implementable, parallel-safe work packages and defines the conductor/workhorse protocol. Companion documents: `LEARNINGS.md` — the full decision log and reasoning; `UI_UX_RESEARCH.md` — the verified UI/UX evidence archive.*

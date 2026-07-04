@@ -251,7 +251,7 @@ These were named/needed but could not be fetched from this environment (paywall 
 1. ~~Re-run the §5.1 verification queue~~ ✅ **Done** — all 25 claims checked, none refuted, corrections inline + §8.1.
 2. ~~Relaunch the five §5.2 agent briefs~~ ✅ **Core questions answered** via targeted agents (§8.2–§8.3); residual gaps in §8.5 are optional nice-to-haves, not blockers.
 3. ~~Chase the §5.3 blocked sources~~ ✅ **Mostly done via mirrors**; still paywalled: Buell & Norton full text (the "~8%" number), Su/Cui/Walsh per-study Ns. Both flagged; neither blocks any design decision.
-4. **Remaining action (the real next step):** fold the verified findings into `FINAL_PRD.md` — §17 (design system: OKLCH/HCT-derived tokens per §4, plus the §8.4 palette audit fixes), §6.2/§6.5/§6.21 (onboarding, research UX, gamification), and correct the PRD's "~3–5%/field" and "skeletons feel faster" assertions per §6 above. Also fix `LEARNINGS.md` D8's venue/claim (see §8.3 Q1).
+4. ~~Remaining action: fold findings into `FINAL_PRD.md`~~ ✅ **Done (2026-07-04, same session):** `FINAL_PRD.md` §17 replaced with the owner-approved Color System v2 ("A×C hybrid" — trusted blue on warm sand, terracotta for peaks; every pair contrast-verified, CI-enforced per §17.9); §6.2/§6.3/§6.5/§6.7/§6.18/§6.21 corrected and extended per §8.2–§8.3; the folklore claims ("~3–5%/field", "skeletons feel faster") corrected in place; `LEARNINGS.md` D8/D37/D41 annotated and Round 11 (D57–D58) added. This dossier is now the *evidence archive*; the PRD is the implementation source of truth.
 
 ---
 
