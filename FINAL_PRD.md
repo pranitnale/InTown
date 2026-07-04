@@ -62,6 +62,10 @@ A **map-first, multi-user, offline-first AI trip companion** (PWA first, native 
 | 17 | **Monetization: pay per city.** The user pays once per city itinerary; that purchase covers the deep research (done once) and **unlimited reconfigures/re-solves for that city** (solver runs are near-free). |
 | 18 | **Gamification of the on-the-go database:** territory opening ("first InTown traveler here"), themed badges, and community roles (Explorer, Knowledge Keeper, Pathfinder) reward the behaviors that grow the City Brain (§6.21). |
 | 19 | **Social import → "Want to go":** users share an Instagram Reel / TikTok link; the app extracts the places into a personal Want-to-go list that resurfaces (highlighted) in the longlist when a matching trip is planned (§6.22). |
+| 20 | **Self-hosted on the owner's own VPS(s); no third-party BaaS cloud.** All infrastructure runs on VPS servers we control. Supabase *cloud* is not used (data residency, cost control, no vendor lock-in). (§12.1) |
+| 21 | **Backend = the "plainer path": plain PostgreSQL + PostGIS + our own API (Fastify/Next) + Auth.js (a library, not a separate auth server) + object storage (disk/MinIO) + *only* the self-hosted Supabase **Realtime** container** for live collaboration (Broadcast/Presence). The full Supabase stack is **not** run, and Supabase source is **never forked or stripped** — load is reduced by running fewer services, not by editing their code. (§12, §12.1) |
+| 22 | **Geocoding: Geoapify (OSM-based) free tier as primary at launch** — free, storable, accurate enough for European cities; self-hosted Photon/Nominatim deferred (RAM/disk heavy). **Google Geocoding/Places used only as fallback-on-miss** verification, storing **only `place_id`** (permitted indefinitely); all other Google content is never persisted beyond the ToS 30-day cache. (§5.2, §12) |
+| 23 | **Coordinate-integrity doctrine (anti-fake-location — a traveler must never be sent to a wrong/fake location).** The LLM **never emits coordinates** (hallucination risk). Every coordinate carries a source + confidence; a place is shown as a **precise pin only when ≥2 independent geo-sources agree within ~100 m**, else labeled **"approximate — verify on arrival,"** and unverifiable places are not offered as navigable destinations. First-traveler GPS confirmation closes the loop. **Provenance is a fact, not a relabelable tag — a Google-derived coordinate is never stored as OSM.** (§5.5, §7, §14) |
 
 ---
 
@@ -139,7 +143,8 @@ The central asset. **Built on demand, city by city, by the first trip that needs
 | Gov travel advisories (US State Dept — public domain; UK FCDO + German AA — open licenses with attribution) | Country/city safety baselines | API/feeds, storable, attributed |
 | Open city crime data (data.police.uk, Berlin Kriminalitätsatlas, data.gouv.fr…) | Area-level caution shading where available | Per-city, openly licensed |
 | Public-holiday API (Nager.Date / OpenHolidays — free) | Holiday closures into solver time windows | API, storable |
-| Google Places (New), field-masked | Verification of hours where open data fails; live photo fallback | **Never stored beyond ToS**; verification layer only |
+| **Geoapify** (OSM/OpenAddresses/GeoNames), free tier | **Primary geocoding + search-to-add + name resolution** (forward/reverse); coordinates for user-typed addresses and researched place names | Free tier ~3,000 credits/day (~90k/mo), 1 credit/geocode; **results storable (open data)**; debounce autocomplete. Self-hosted Photon/Nominatim deferred (RAM/disk heavy). |
+| Google Places / Geocoding (New), field-masked | Verification of hours where open data fails; live photo fallback; **fallback-on-miss geolocation** where no open-data place exists | **Only `place_id` stored (permitted indefinitely); all other content never persisted beyond ToS's 30-day cache.** Used as a *search hint* → resolve to a genuine OSM/Wikidata record and store **that** (never relabel Google coordinates as OSM); log fallback rate. Verification layer only. |
 | **Users** (§6.15) | Corrections, closures, price updates, ratings, reviews, visit durations | First-party, verified-visit labeled |
 
 ### 5.3 The atomic-fact model
@@ -166,6 +171,24 @@ The **City Brief** (§5.6) additionally carries the city's **food identity**: th
 ### 5.5 Entity resolution (the on-the-go DB's hard problem)
 
 ⚙️ Every ingest path (OSM import, LLM research mention, user add, Google verification) resolves to one canonical place: match by external IDs (osm_id, wikidata_id, google place_id) first, else fuzzy name similarity + geo distance (<150m) + category compatibility; below threshold → new place flagged `unverified` until grounded. Merges keep all source_refs; unmerge tooling for mistakes. Without this, the Brain fills with duplicates and the learning system's signals fragment.
+
+**Coordinate provenance & confidence — the anti-fake-location doctrine (owner decision #23).** The worst failure the app can commit is sending a traveler to a wrong or non-existent location; false precision is worse than an honest "approximate." Two rules make this bulletproof:
+
+1. **The LLM never emits coordinates.** Deep research may *name* a place and describe its rough area, but a coordinate must always come from a geospatial source — models hallucinate plausible-but-wrong lat/lng. Encoded as an architecture law (§7) and a validation gate (§14).
+2. **Every coordinate stores `source`, `confidence`, and `verified_by`** (open-data / cross-referenced / first-traveler-GPS). Provenance is a *fact*, never a relabelable tag: a coordinate that came from Google is Google-derived even if a matching OSM node is later found — you store the *genuine OSM value you read from OSM*, not Google's number under an OSM label.
+
+**Resolution cascade for a researched or obscure place** (e.g., a scenic viewpoint outside the city, a spot from a Reel), tried in order, each attaching source + confidence:
+1. **OSM** — viewpoints are first-class (`tourism=viewpoint`); coverage in Europe is excellent.
+2. **Geotagged photos** — Wikimedia Commons / Flickr-CC GPS clusters (huge for scenic spots; storable, attributed).
+3. **The source's own geodata** — a Google-Maps link or embedded geotag scraped from the blog/reel (the author's own pin).
+4. **Visual landmark recognition** from the shared video (§6.22 Gemini pipeline) → grounded against place search with a confidence score.
+5. **Google fallback-on-miss** (§5.2) — store only `place_id`, hydrate live; where possible resolve to a genuine OSM/Wikidata record and store that.
+
+**Display gate (parallels the citation-or-N/A gate, §14):** precise pin only when **≥2 independent sources agree within ~100 m**; single/weak source → **"approximate area — verify on arrival"** (never a confident point); unverifiable → not offered as a navigable destination. The **first traveler's GPS confirmation** (§6.15) promotes an approximate place to verified and is rewarded via territory-opening (§6.21) — obscure spots get confirmed by the people who actually go, and the Brain grows more accurate.
+
+**Accuracy compounds over time — the append-only geo-observation log (owner decision).** Every geolocation signal we ever see for a place is kept as an **observation**, never overwritten: `poi_geo_observations(poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)` — OSM/Wikidata nodes, geotagged Commons/Flickr photo clusters, scraped source map-links, visual-recognition hits, and **first-traveler GPS fixes**. The **canonical coordinate + confidence on `pois` is derived** from this log (consensus of independent, in-license observations, recency-weighted for GPS), and it **tightens with every trip** — the same compounding-moat logic as the City Brain's facts (§5.1) and the learning system (§9), applied to *location*. Two provenance rules keep it clean and legal:
+- **ToS-limited sources carry an `expires_at`.** A Google fallback lat/lng may be held **only as a temporary cache where the applicable Google service terms allow it (≤30 days), then purged** — it is an *observation with an expiry*, never the persisted canonical value. The durable Google reference is the `place_id` (storable indefinitely); the durable coordinate is the consensus derived from storable sources + user GPS.
+- **Provenance is never rewritten.** An observation keeps its true `source_kind` forever — a Google-derived fix is never relabeled as OSM (a ToS breach *and* silent data poisoning). This is also what lets us audit and, later, learn *which sources are most reliable per region*.
 
 ### 5.6 The City Essentials brief
 
@@ -245,7 +268,7 @@ Actions: remove / must-do / vote / note / share. Honesty rule everywhere: **unkn
 ### 6.10 The map platform [P1]
 
 📐 Google-Maps-grade interactions on open source: tap **any** POI → place card (Brain-backed; add-to-day, navigate) · "places around" category browse ranked by fit · city-biased search-to-add (🧭 ET: search is an *add* action) · long-press ad-hoc route preview.
-⚙️ MapLibre GL JS + Protomaps PMTiles (self-hosted/CDN); our POI layer served as vector tiles from PostGIS; `queryRenderedFeatures` for basemap POIs; Photon/Nominatim geocoding (Geoapify fallback); OSRM/Valhalla self-hosted for walk/drive times **feeding the solver matrix**; transit *times* approximated (Transitous/OTP where available, else conservative estimates) because step-by-step transit is delegated (§6.11).
+⚙️ MapLibre GL JS + Protomaps PMTiles (self-hosted/CDN); our POI layer served as vector tiles from PostGIS; `queryRenderedFeatures` for basemap POIs; Geoapify geocoding at launch (self-hosted Photon/Nominatim deferred), Google fallback-on-miss (§5.2); OSRM/Valhalla self-hosted for walk/drive times **feeding the solver matrix**; transit *times* approximated (Transitous/OTP where available, else conservative estimates) because step-by-step transit is delegated (§6.11).
 
 ### 6.11 Getting around: Google Maps delegation + scenic legs + pass advisor [P1]
 
@@ -342,7 +365,7 @@ Data: `want_to_go(user_id, poi_id | unresolved_name, city, source_url, creator_h
 
 ## 7. The AI pipeline
 
-**Architecture law (TravelPlanner benchmark: LLM-only ≈ 0.6–4.4% feasible; LLM+solver ≈ 97%):** *the LLM researches, personalizes, and narrates; the solver schedules. The LLM never emits arrival times.*
+**Architecture law (TravelPlanner benchmark: LLM-only ≈ 0.6–4.4% feasible; LLM+solver ≈ 97%):** *the LLM researches, personalizes, and narrates; the solver schedules. The LLM never emits arrival times **and never emits coordinates** — geolocation always comes from a geospatial source (OSM/Wikidata, geotagged photos, source map-links, Google fallback), never from the model (hallucination risk; see the coordinate-integrity doctrine §5.5).*
 
 ```
 0 BRAIN CHECK   city cold? → build City Brain (§5.2: open-data skeleton fast,
@@ -419,7 +442,7 @@ Replay harness from day one: NDCG@k + Kendall-τ (proposed vs finalized order) p
 **Identity/preferences:** `users`, `traveler_profiles` (age_band, mobility, languages, currency), `taste_profiles` (versioned), `consents`.
 **Trips:** `trips` (owner_id, city_stays[] via `trip_cities`(ord, city_id, arrive/depart, accommodation, start_defaults)), `trip_members`(role), `trip_invites`(code, role, expires, revoked), `intercity_legs`(mode, dep/arr time+place, booking_ref) [P2].
 **Curation/plan:** `trip_places`(trip_city_id, poi_id, **position** text-fractional, state: suggested|kept|removed|must_do, added_by, est_duration), `place_votes`, `plan_revisions`(append-only, reason incl. go_now|closed_now, created_by), `stops`(materialized current revision).
-**City Brain:** `cities`(bbox, pmtiles_path, brain_status, warmed_at), `pois`(canonical, source_refs jsonb, category enum, geog, prominence, indoor_outdoor, accessibility), `facts`(**atomic-fact table** §5.3 — entity_id, attribute, value jsonb, source_url, source_kind, observed_at, confidence, corroboration, status), `poi_hours`, `poi_enrichment`(per-language significance/scripts/audio_path, generated_at), `city_briefs`, `scenic_legs`, `transit_passes`.
+**City Brain:** `cities`(bbox, pmtiles_path, brain_status, warmed_at), `pois`(canonical, source_refs jsonb, category enum, geog **+ derived canonical coord + coord_confidence + coord_verified_by**, prominence, indoor_outdoor, accessibility), `poi_geo_observations`(**append-only geo log §5.5** — poi_id, source_kind, lat, lng, accuracy_m, observed_at, **expires_at** for ToS-limited sources e.g. Google ≤30d, confidence), `facts`(**atomic-fact table** §5.3 — entity_id, attribute, value jsonb, source_url, source_kind, observed_at, confidence, corroboration, status), `poi_hours`, `poi_enrichment`(per-language significance/scripts/audio_path, generated_at), `city_briefs`, `scenic_legs`, `transit_passes`.
 **Community:** `reviews`(rating, text, verified_visit, status), `moderation_actions`(notice, decision, statement_of_reasons, timestamps — the DSA audit log), `corrections`(fact_id, proposed_value, reporter, confirmations), `want_to_go`(user_id, poi_id | unresolved_name, city, source_url, creator_handle, saved_at), `badges`/`user_badges` (server-config rules over events).
 **Learning:** `events`(partitioned), projections `user_pref_profiles`, `item_stats`.
 **Vault [P2]:** `trip_documents`(parent_kind incl. INTERCITY_LEG, member_ids[], storage_path unique), ticket_links jsonb on parents.
@@ -443,18 +466,34 @@ Realtime channels: `trip:{id}` broadcast + presence.
 |---|---|
 | Frontend | React + TS + Vite PWA (evolve existing `Frontend_Website`); Zustand; SW + OPFS/Cache Storage/IndexedDB |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
-| Geocoding/search | Photon/Nominatim self-hosted → Geoapify fallback |
+| Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
 | Routing (times for solver) | Self-hosted OSRM/Valhalla (walk/drive); Transitous/OTP transit estimates where available; **step-by-step delegated to Google Maps deep links** |
 | Weather | Open-Meteo (free) |
 | Holidays | Nager.Date / OpenHolidays (free) |
 | LLM | Tiered, provider-agnostic (reasoning + fast); **Gemini paid tier for YouTube URL ingestion**; zod-validated I/O |
 | Solver | OR-Tools routing (Python service); CP-SAT offline auditor; JS/WASM greedy+2-opt on device |
 | TTS | Piper/Kokoro self-hosted → Google Cloud TTS free-tier fallback |
-| DB/Auth/Storage/Realtime | Supabase (Postgres+PostGIS, Auth, Storage, Broadcast+Presence) or self-hosted equivalents |
-| Backend | TypeScript API (Fastify/Next) + Python pipeline/solver workers + job queue; SSE for progress |
+| DB/Auth/Storage/Realtime | **Self-hosted on VPS (owner decision #20–21): PostgreSQL + PostGIS · Auth.js (library in the API, not a separate auth server) · object storage on disk / MinIO · *only* the self-hosted Supabase **Realtime** container for Broadcast+Presence.** Full Supabase cloud/stack not used; source never forked |
+| Backend | TypeScript API (Fastify/Next) + Python pipeline/solver workers + job queue; SSE for progress; all self-hosted on VPS |
 | Push | Web Push (VAPID) — Android + iOS ≥16.4 installed PWA |
 | Ranking [P2] | LightGBM LambdaMART; replay harness in CI |
 | Observability | Structured logs, Sentry, per-stage pipeline metrics, per-API cost meters + alerts |
+
+### 12.1 Deployment & hosting — self-hosted VPS (owner decisions #20–21)
+
+**Posture:** everything runs on the owner's own VPS(s) (e.g., Hetzner/OVH/DigitalOcean); no third-party BaaS cloud. This gives data residency (EU hosting, §16.1), cost control, and no vendor lock-in — at the cost of owning backups, patching, uptime, and scaling ourselves.
+
+**The "plainer path" (chosen over self-hosting the full Supabase stack).** Self-hosted Supabase is ~10 Docker containers (Postgres, GoTrue, PostGREST, Realtime, Storage, Kong, Studio, postgres-meta, imgproxy, Analytics/Logflare+Vector); the genuinely heavy piece besides Postgres is the Analytics/Logflare stack. Rather than run all of it — or fork and strip its source (rejected: components are separate repos in different languages; the overhead is *processes*, not code bloat, so deleting source doesn't help, and a fork forfeits upstream security patches for auth/storage) — we **compose from standard parts and libraries**:
+
+- **PostgreSQL + PostGIS** — installed directly (unavoidable core; light at our scale).
+- **Our own API** (Fastify/Next) — replaces PostgREST + Kong entirely.
+- **Auth.js** — a library inside the API (near-zero extra process), lighter than running GoTrue.
+- **Object storage** — disk + API, or MinIO (S3-style) when needed.
+- **Realtime** — the *one* Supabase piece worth borrowing as-is: run just the self-hosted **Realtime** container (Elixir, memory-efficient) for the live curation list's Broadcast + Presence (§6.3, D47). Fallback: a small WebSocket handler in our API.
+
+**Load reality:** at ~50 users, interactive concurrency (API/DB/auth/realtime) is trivial — the VPS footprint is dominated by the **geo/AI infrastructure** (OSRM routing, PMTiles serving, TTS, Python solver/AI workers), not by user count. LLMs run on **external APIs** (Claude/Gemini) — no VPS load, but the real variable cost (§15). Geocoding is offloaded to **Geoapify's free tier** so the RAM/disk-heavy Nominatim/Photon can be deferred.
+
+**Sizing — starting point for a ~50-user beta (eigene Schätzung, validate on a test box; §20):** a single **~4 vCPU / 16 GB RAM / 160 GB SSD** VPS comfortably holds the whole stack for a handful of launch cities, with headroom for OSRM spikes. Rough per-service RAM: Postgres+PostGIS 1–2 GB · API ~0.5 GB · Realtime ~0.3–0.5 GB · Python workers 1–2 GB · **OSRM 1–4 GB (the main variable — scales with loaded region size)** · PMTiles negligible RAM (disk-bound, 20–80 MB/city) · TTS ~0.3–0.7 GB. Split into an app+DB box and a geo/worker box when self-hosted geocoding is added or many cities are loaded.
 
 ## 13. Non-functional requirements
 
@@ -466,13 +505,14 @@ Realtime channels: `trip:{id}` broadcast + presence.
 
 ## 14. Guardrails, testing & evaluation
 
-Schema validation at every LLM boundary (bounded retries → degrade) · citation-or-N/A validator rejects non-compliant cards/plans pre-display · corroboration threshold (≥2 sources) for experience claims · independent solve-feasibility checker · **golden-city eval suite** (nightly, deploy-gating) · replay harness (§9.4) · reconfigure determinism tests · airplane-mode E2E (Playwright + SW): map renders, audio plays, edits queue/sync · moderation-flow tests (notice → decision → statement of reasons) · cost regression alarms · rollback: feature flags per pipeline stage; tool outages degrade narration/research gracefully, static plan survives.
+Schema validation at every LLM boundary (bounded retries → degrade) · citation-or-N/A validator rejects non-compliant cards/plans pre-display · **coordinate-provenance gate (§5.5): LLM-emitted coordinates rejected outright; a precise pin requires ≥2 independent geo-sources agreeing within ~100 m, else the place is labeled "approximate" and never offered as a navigable destination** · corroboration threshold (≥2 sources) for experience claims · independent solve-feasibility checker · **golden-city eval suite** (nightly, deploy-gating) · replay harness (§9.4) · reconfigure determinism tests · airplane-mode E2E (Playwright + SW): map renders, audio plays, edits queue/sync · moderation-flow tests (notice → decision → statement of reasons) · cost regression alarms · rollback: feature flags per pipeline stage; tool outages degrade narration/research gracefully, static plan survives.
 
 ## 15. Cost model & controls
 
 **City Brain build (one-time per city, amortized across all users forever):** YouTube via Gemini low-res ~$1–4 (30h video) + blog/forum research ~$1–3 + advisories/open data ≈ $0 → **≤ ~$5–8/city cold**, trending to ~$1/refresh cycle.
 **Per trip:** warm city ≤ $0.05 (scoring + solve); cold city bears the Brain build once. Narration ≈ $0 (self-hosted TTS, generated on demand, globally cached). Verification (Google field-masked) $0.20–0.60/trip worst-case cold.
-**Fixed:** OSRM + tiles + TTS + solver hosting ~$50–150/mo initial; storage/CDN cheap. BestTime.app **removed** from the plan (owner decision — research-derived timing instead): −$29+/mo.
+**Fixed:** self-hosted on VPS (§12.1) — OSRM + tiles + TTS + solver + DB/API/Realtime ~$50–150/mo initial (starting box ~4 vCPU/16 GB); storage/CDN cheap. BestTime.app **removed** from the plan (owner decision — research-derived timing instead): −$29+/mo.
+**Geocoding:** Geoapify **free tier ≈ $0** at beta scale (~90k/mo free; a 50-user beta consumes a small fraction — debounce autocomplete). Google fallback near-free (fires only on OSM misses; watch the fallback-rate meter — Geocoding 10k free/mo then ~$5/1k; **Places API is pricier and field-mask-controlled**, so mask to `id`/`location` only).
 **Controls:** per-city and per-API cost meters with alerts, model tiering, cache-first everything; the pricing model itself is the primary cost control (below).
 **Monetization (owner decision #17): pay per city.**
 - The user **pays once per city itinerary**. That purchase funds the one expensive event — the deep research — and includes **unlimited reconfigures, go-nows, and re-solves for that city** (solver runs cost fractions of a cent; weather and all raw context feed the solver freely).
@@ -486,7 +526,7 @@ Schema validation at every LLM boundary (bounded retries → degrade) · citatio
 2. **DSA (micro/small platform):** exempt from Section-3 platform obligations (Art. 19) but implementing: Art. 16 notice-and-action (report button + receipt + decision), Art. 17 statement of reasons on removals/demotions, Art. 14 plain-language moderation policy in T&Cs, Arts. 11–13 contact points, Art. 24(3) user-count reporting. Expeditious action on notices preserves the hosting liability shield.
 3. **Omnibus Directive (fake reviews — applies regardless of size):** public disclosure of whether/how reviews are verified ("Verified visit" = GPS-confirmed; unverified labeled), how collected/processed, whether all published, how averages computed. Never commission or suppress reviews. Moderation stack: report button → LLM pre-moderation → human queue → append-only audit log.
 4. **Safety-content framing:** attributed, dated, "commonly reported by travelers / according to [source]" language; advisories quoted with attribution (State Dept public domain; FCDO/AA open licenses); **never rank anything "safe"**; prominent disclaimer (aggregated third-party information, not advice). Risk is asymmetric — warn freely, certify nothing.
-5. **Content ingestion posture:** YouTube only via Gemini URL ingestion (paid tier — contractually cleanest; no yt-dlp, no transcript scraping); store only derived atomic facts with attribution + links (facts aren't copyrightable — Feist); quotes ≤1 sentence; blog/forum prose never republished; Google Places data never persisted beyond ToS; Commons/Wikidata images attributed per license. Freedom-to-operate glance at US 9,127,957 (weather-based indoor/outdoor scheduling) before launch.
+5. **Content ingestion posture:** YouTube only via Gemini URL ingestion (paid tier — contractually cleanest; no yt-dlp, no transcript scraping); store only derived atomic facts with attribution + links (facts aren't copyrightable — Feist); quotes ≤1 sentence; blog/forum prose never republished; **Google Maps content never persisted beyond ToS — only `place_id` stored (permitted indefinitely); lat/lng and other content cached ≤30 days then re-fetched, and never relabeled as open data (§5.5)**; Geoapify/OSM/Commons/Wikidata data is open-licensed and storable, attributed per license. Freedom-to-operate glance at US 9,127,957 (weather-based indoor/outdoor scheduling) before launch.
 
 ## 17. Design system
 
@@ -530,7 +570,7 @@ The existing frontend implements a close variant — align tokens in the polish 
 
 ## 20. Open questions
 
-1. Launch cities (recommend EU top-50 pre-warm; the 10 golden eval cities). 2. Narration voice identity. 3. Free-tier quota numbers (cold researches/month, trips). 4. Review publication timing: launch capture-only [P1] and publish reviews at [P2], or publish immediately? (Recommended: capture-first — accumulate before display.) 5. Age-band buffer defaults — validate with real users before hardening. 6. Whether "Prepare narration for my trip" pre-generation should be free-tier-limited (cost is small but nonzero).
+1. Launch cities (recommend EU top-50 pre-warm; the 10 golden eval cities). 2. Narration voice identity. 3. Free-tier quota numbers (cold researches/month, trips). 4. Review publication timing: launch capture-only [P1] and publish reviews at [P2], or publish immediately? (Recommended: capture-first — accumulate before display.) 5. Age-band buffer defaults — validate with real users before hardening. 6. Whether "Prepare narration for my trip" pre-generation should be free-tier-limited (cost is small but nonzero). 7. VPS sizing validation under real beta load (starting point ~4 vCPU/16 GB/160 GB; geo/AI services dominate the footprint — confirm on a test box before committing) and when to split into app+DB vs geo/worker boxes. 8. Geoapify accuracy spot-checks in target regions (fine for European cities; thinner outside Europe — measure before relying on it there).
 
 ---
 
