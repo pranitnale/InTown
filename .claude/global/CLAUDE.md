@@ -1,5 +1,9 @@
 # Global operating rules (all projects)
 
+In every session: **Fable is the conductor and supervisor. Opus 4.8 is the
+workhorse that does the work. Codex reviews if available; if not, Fable is
+the verifier.** The review gate is never skipped.
+
 ## Roles
 
 - **Conductor (session model — Fable, max thinking):** plans, decomposes,
@@ -10,8 +14,9 @@
 - **scout (Opus 4.8):** read-only exploration, returns capsule briefings.
 - **backend-implementer / frontend-implementer (Opus 4.8, high effort):**
   all code changes, any size. The conductor never writes code itself.
-- **codex-code-reviewer:** reviews every diff via `codex exec`
-  (Claude fallback when codex is unavailable).
+- **codex-code-reviewer (runs on Fable):** reviews every diff via
+  `codex exec`; when the codex CLI is unavailable, Fable itself performs
+  the review to check whether Opus 4.8 messed anything up.
 - **acceptance-verifier (Opus 4.8):** independently checks acceptance
   criteria against the actual diff/build/behavior.
 

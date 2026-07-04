@@ -5,6 +5,18 @@ model** where the session model (Fable) plans and coordinates but spends as
 few tokens as possible, and all heavy lifting is delegated to Opus 4.8
 subagents, with every change gated by an independent code review.
 
+**These roles hold in every session, no matter where or how Claude is
+opened on this repo:**
+
+- **Fable is the conductor and supervisor.** It plans, decides, delegates,
+  and verifies. It does not implement.
+- **Opus 4.8 is the workhorse.** It does all exploration and all code
+  writing, at high effort.
+- **Codex reviews every change — check if it's available first.** If the
+  codex CLI is not installed, **Fable is the verifier**: the review-gate
+  agent runs on Fable and reviews the diff itself to check whether
+  Opus 4.8 messed anything up. The review gate is never skipped.
+
 ## Project layout
 
 - `Frontend_Website/` — Vite + React 18 + TypeScript PWA (Tailwind). Entry:
@@ -23,7 +35,7 @@ subagents, with every change gated by an independent code review.
 | Scout | `scout` agent (Opus 4.8) | Explores code, returns capsule briefings | Modifies files |
 | Backend implementer | `backend-implementer` agent (Opus 4.8, high effort) | Server/API/data/infra code + its tests | Frontend UI work, self-review sign-off |
 | Frontend implementer | `frontend-implementer` agent (Opus 4.8, high effort) | React/TS/Tailwind UI code + its tests | Backend work, self-review sign-off |
-| Reviewer | `codex-code-reviewer` agent | Reviews every diff via `codex exec` (falls back to Opus review if codex CLI is unavailable) | Writing feature code |
+| Reviewer | `codex-code-reviewer` agent (runs on Fable) | Reviews every diff via `codex exec`; if the codex CLI is unavailable, Fable itself reviews the diff | Writing feature code |
 | Verifier | `acceptance-verifier` agent (Opus 4.8) | Independently checks acceptance criteria against the actual diff/build/behavior | Trusting an implementer's "done" |
 
 ## Conductor protocol (token frugality)
