@@ -1,0 +1,223 @@
+# InTown — Learnings & Decision Log
+
+> **Purpose:** The complete, self-contained reasoning trail behind `FINAL_PRD.md`. Every decision, the alternatives that were rejected, the research evidence with numbers and sources, and the lessons from the two parent apps. Written so that anyone (including the owner, months from now, with the original chat deleted) can trace *why* the product is designed the way it is.
+> **Date:** 2026-07-04. Produced from a full brainstorm-and-research cycle: 10 deep-research rounds + codebase survey + iterative owner decisions.
+
+---
+
+## 1. Where this project came from
+
+Two parent artifacts were merged:
+
+1. **The original InTown PRD** (`PRD.md`, now deleted — key content absorbed): an Android AI trip planner concept — map-first, LLM-researched personalized day plans, citations with "never invent hours → N/A + official link", 60–90s TTS narration, Looks-good/Something-missing/Reconfigure loop, guest-only, online-only. Its color system survives verbatim in FINAL_PRD §17.
+2. **The Europe Trip Map app** (as-built PRD, lived in Downloads): a production PWA built for one real 9-city family trip. No AI, no personalization — but battle-tested travel-companion mechanics: real offline (service worker + Cache Storage + IndexedDB), document/ticket vault with per-traveler tagging, TTS with offline replay, a 13-mode transit visual language, graceful degradation everywhere — and an honest list of 11 debt items (§10 below) that the new app fixes structurally.
+
+**Codebase reality check (survey, 2026-07-04):** the `Backend/` folder was completely empty; `Frontend_Website/` was a design-complete React 18 + TypeScript + Vite + Tailwind PWA running 100% on mocks (placeholder map, 3-second fake generation, five hardcoded Barcelona stops, Web-Speech narration of canned text). Conclusion: the build is effectively greenfield, but the UX shell, TypeScript types, setup wizard, and design system are reusable.
+
+**The product that emerged:** a multi-user, offline-first, no-booking AI trip companion. Deep research reads the internet about a city → prioritized, cited longlist with decision cards → group curates (drag/remove/vote/lock) → a solver builds day plans from a chosen start point/time → the app travels along offline and replans in seconds → every action feeds a learning loop. Cities chain into multi-city trips.
+
+---
+
+## 2. The two findings that shaped everything
+
+1. **LLMs must never build the schedule.** The TravelPlanner benchmark showed GPT-4-class agents produce feasible multi-constraint itineraries only **0.6–4.4%** of the time; coupling language understanding with a formal solver lifts success to **~97%** (arxiv.org/abs/2402.01622). This became the architecture law: *the LLM decides taste, researches, and narrates; a deterministic solver owns the schedule; the LLM never emits arrival times.* The ITINERA system (arxiv.org/abs/2402.07204, deployed in production) validated the same split.
+2. **The market gap is "great AI + great free offline."** Mindtrip has the best AI grounding but no real offline (and pivoted to agentic *booking* in 2026 — leaving our lane). Wanderlog has the best maps/collaboration but paywalls offline + optimization ($39.99/yr) with AI bolted on. Troupe owns group voting but "ends where the work begins" (votes never become an itinerary). Nobody combines deep verified research, free full offline, and group curation flowing into an optimized plan. That combination is the wedge — which is why **offline is never paywalled** in our model.
+
+---
+
+## 3. Decision log (chronological, with rationale)
+
+### Round 1 — platform & foundation
+
+| # | Decision | Why (and what was rejected) |
+|---|---|---|
+| D1 | **PWA first, native later** | Backend is the center of gravity; the existing React frontend is design-complete; fastest path to validating the planning engine. React Native/Expo later adds background GPS + no storage eviction. Rejected: Kotlin-native (throws away the frontend, ~2× effort), PWA-forever (iOS storage eviction + no background GPS caps the companion experience). |
+| D2 | **Open-source-first stack** (MapLibre + PMTiles, OSM/Wikidata POI backbone, self-hosted OSRM, Photon geocoding) with Google-grade interactions | Owner wanted open source; research showed it's also the *economics*: Google killed the $200/mo credit (2025); Places Enterprise fields cost $20/1K and its ToS forbids building a stored database. PMTiles = whole city basemap in one file, no per-tile billing (sidesteps Mapbox's 750-tile-pack cap). Google Places survives only as a field-masked verification layer. |
+| D3 | **Single city multi-day; multi-city = chained city stays** | Keeps solver + research tractable; a trip becomes ordered city plans connected by user-entered transport legs (recorded, never booked). Rejected: multi-city from day one (inter-city research is a whole extra pipeline), single-day-only (real trips are 2+ days). |
+| D4 | **Full offline in v1, including the interactive basemap** | Eurotrip app proved offline is the killer companion feature; PMTiles makes it nearly free; Wanderlog charges $40/yr for it → free offline is the market wedge. |
+| D5 | **Accounts required** | Cleanest data model for evolving taste profiles, group trips, cross-device sync. Friction is managed by *placement*: the sign-in gate sits after the trip-creation quiz, at peak motivation (see D30). |
+
+### Round 2 — multi-user, curation, learning (owner's second big brief)
+
+| # | Decision | Why |
+|---|---|---|
+| D6 | **Multi-user core: creator = owner; invite links; Owner/Editor/Viewer roles** | Owner requirement. Role model follows TripIt (viewers don't see documents unless shared) + Wanderlog (link invites cover the "6 people in a group chat" reality). |
+| D7 | **One shared curation list + per-member votes** (owner chose over per-member-private-rankings-merged and owner-decides) | Simplest mental model; votes give everyone voice; per-member ranking requires everyone to finish ranking before generation (heavy). |
+| D8 | **Group preference merge: hard constraints = filters (veto); soft interests = average-with-misery-threshold; disagreement always displayed** | Group-recommender research (Masthoff line): Average and Average-Without-Misery are the empirically user-preferred strategies in tourism; the CHIIR 2020 study ("You Do Not Decide for Me!", N=200) found the *explanation* drives perceived fairness more than the algorithm — hence mandatory "3 of 4 want this" chips. |
+| D9 | **Curation stage between research and solving** | Owner requirement: research returns a prioritized longlist (~2× plannable, so removals don't leave holes); users drag/remove/lock/vote; **the curated order is a priority weight, not a visit sequence** — the solver decides sequence. This is also the human-in-the-loop safety net for research quality. |
+| D10 | **Every user action stored in an append-only event log; learning system on top** | Owner asked "store all actions, improve the algorithm — is semantic chunking right?" Research verdict: **semantic chunking is a RAG document-splitting technique — wrong tool.** The correct discipline: event capture (Segment-style object-action events, impressions logged with algo_version) + implicit-feedback preference learning. Key insight: **a drag-and-drop reorder is a batch of pairwise preferences** ("X above Y") — exactly what Bradley-Terry / BPR / LambdaMART consume. The user's final order at "Build my days" is the ground-truth label. |
+| D11 | **Learning progression v1→v3 gated by data volume** | v1 (day one): per-user feature weights (deterministic, explainable) + compact behavior summary injected into LLM scoring (in-context personalization — Spotify/Roblox production pattern) + Bayesian-smoothed global item priors per interest segment (`(C·m+Σs)/(C+n)` — three removals can't nuke a place). v2 (~10⁴+ events): LightGBM LambdaMART on finalized orders + interleaving eval (more sensitive than A/B at small traffic — Airbnb's method). v3 (>10k users): BPR/two-tower + bandits. Reason for gating: below ~10⁵ interactions, embeddings demonstrably don't beat feature weights + GBDT — don't build them early. |
+| D12 | **Replay harness from day one** (NDCG@k, Kendall-τ of proposed vs final order; product metrics: edits-per-list ↓, removal rate ↓, top-5 visited rate ↑) | You can't claim the algorithm improved without measuring; impressions stamped with algo_version make honest comparison possible forever. |
+
+### Round 3 — the engine (owner's routing/priority/weather brief)
+
+| # | Decision | Why |
+|---|---|---|
+| D13 | **Formulation: Team Orienteering Problem with Time Windows (TOPTW), one "vehicle" per day** | The exact academic match for "maximize the value of visited places under time windows and travel budgets." Canonical surveys: Gavalas 2014 (J. Heuristics), Ruiz-Meza & Montoya-Torres 2022 (EJOR Perspectives). At tourist scale (20–60 POIs, 1–7 days) solve times are well under 1s. |
+| D14 | **Solver: Google OR-Tools routing library** | Natively expresses everything: disjunctions = optional-with-prize (prize-collecting), hard time windows, breaks, per-day start/end depots, a second dimension for walking budget, and **warm start** (`ReadAssignmentFromRoutes` → `SolveFromAssignmentWithParameters`) for ≤3s replans. Rejected: VROOM (cost-minimization objective, weak prize semantics — wrong shape), Timefold (best continuous-planning API; noted as P3 upgrade path for group-fairness constraints; JVM), custom ALNS (unjustified at 60 nodes). CP-SAT kept offline as an exactness auditor in CI. |
+| D15 | **Priority rank → prize with exponential decay (not linear)** | Linear decay lets the solver trade a top-3 pick for two mediocre stops; exponential keeps headliners dominant. Prizes scaled in travel-time units so "skip vs 40-min detour" is an explicit trade. This is why the owner's scenario works naturally: a nearby #4 gets visited first (no travel cost, nothing lost) while #1 is scheduled at its best window — **order is weight, not sequence**. |
+| D16 | **Must-do = mandatory node** (not in any disjunction) + pre-solve feasibility check | "I want Priority 1 anyhow" becomes a constraint the solver cannot violate; impossibility is explained before solving ("closed both your days"), never silently dropped. |
+| D17 | **Golden-hour / best-time via node duplication over time buckets** | True time-dependent objectives break the arc-cost structure that makes routing solvers fast (they force MIP or specialized metaheuristics — research-grade). The standard trick: clone "Viewpoint@golden-hour (prize 150)" vs "@anytime (prize 80)" in a pick-≤1 disjunction → plain TOPTW at 2–3× nodes, trivial at this scale. Soft time windows (earliness/lateness penalties) handle broad crowd-avoidance; a post-solve re-timing DP polishes start times. |
+| D18 | **Weather = hourly prize multipliers on indoor/outdoor/mixed tags** (rain >70% → ×0 outdoor; 40–70% → ×0.5) | Literature has no better answer — this *is* the state of practice; multi-day shifting (outdoor-heavy day moves to the drier day) emerges automatically because each day-vehicle sees different multipliers. Re-solve on forecast refresh (3–6h, Open-Meteo — free). Note: a granted patent (US 9,127,957) describes weather-based indoor/outdoor scheduling generically — freedom-to-operate glance before launch. |
+| D19 | **Replans (Reconfigure / "go there NOW" / "it's closed") are solver-only, warm-started** | No LLM in the replan path is *why* ≤5s works: pin the visited prefix, force the chosen place next, reuse the morning's travel-time matrix (refresh only rows near current location), warm-start, 2s cap → expected <1s. "Go there now" additionally renders the route instantly (plain navigation) while the re-solve runs in the background with a diff + undo. |
+| D20 | **Engine self-improvement = learned parameters, not self-modifying code** | Realistic engineering: dwell-time hierarchical Bayesian shrinkage (global → category → place) from real visits; skip-propensity discounting prizes; buffer/weather-factor calibration from outcomes. Per-user inverse optimization of solver weights = research-grade, explicitly deferred. |
+
+### Round 4 — City Brain & data sourcing (owner's on-the-go DB brief)
+
+| # | Decision | Why |
+|---|---|---|
+| D21 | **Places database built on the go ("City Brain"), never pre-ingested** | Owner insight, confirmed by economics: first trip to a city builds its knowledge base (skeleton from open data in ~1–2 min; deep enrichment streams in 5–15 min); every later trip reuses it nearly free; user feedback continuously corrects it. The moat compounds with usage. Cold-city UX: simple honest message "InTown is researching {city} — we'll notify you when your itinerary is ready" + push. |
+| D22 | **Atomic-fact model:** every claim = (entity, attribute, value, source_url, observed_at, confidence, corroboration, status) | Makes "read the whole internet" safe: the app never asserts, it attributes. Experience claims need ≥2 independent sources or get a "single report" label. |
+| D23 | **Source hierarchy (owner's rule, encoded in prompts + fact selection):** official sources always win for operational facts (hours/prices/passes); among non-official, **newest wins for time-sensitive facts**; older sources keep their stable insights (what to see, photo angles). **Selection is per fact type, never per source** — one blog can win on crowds and lose on hours. Verified-visitor corrections outrank stale citations after N confirmations. | Owner's exact example: March blog says 7–9, April blog says 9–10 → take April's hours but keep March's crowd insights; the church's own site beats both on hours. |
+| D24 | **YouTube analyzed inside the research prompt (search-grounded), Gemini URL ingestion only as escalation for thin cities** | Owner clarified he didn't mean full ingestion. Legal research had established the boundaries anyway: official YouTube captions API requires video ownership (dead end); transcript-scraping libraries violate ToS and are in a blocking cat-and-mouse (PoToken); **yt-dlp downloading is the highest-risk path — creators are actively suing Apple, Amazon, Snap, Nvidia over exactly that pattern (2025–26)**. Gemini's native YouTube-URL ingestion is the Google-sanctioned route (~$1–4/city for ~30h at low-res; NotebookLM precedent). Posture either way: store only derived atomic facts + attribution links, never transcripts, quotes ≤1 sentence (facts aren't copyrightable — Feist; Perplexity is litigating exactly this defense). |
+| D25 | **Crowd/best-time from deep research (blogs/videos), not sensor APIs** | Owner decision, well-founded: Google Popular Times is in **no official API** and scraping violates ToS (not a load-bearing dependency for a commercial product); BestTime.app ($29+/mo) was in the plan and was dropped — research-derived timing captures *why* a window is good (light, queues, atmosphere), which counters can't. Guardrails: corroboration threshold + "based on traveler reports" labeling + recency dating. |
+| D26 | **Prices: layered sourcing + honesty rule** | Verified dead ends: Wikidata fee property ≈ 4.4K items globally (useless); Google priceLevel = food/retail only; no structured global admission-price source exists. Solution: OSM `fee` flag (~2.5M objects) for free/paid + LLM-cited official prices for the top ~500 attractions/city (refreshed yearly — prices change each January; stored with source + as-of date) + post-visit user corrections. Long tail honestly shows "check official site" — **unknown is never guessed** (this is also the trust feature). |
+| D27 | **Pre-booking flags: curated knowledge base** | No structured source exists (verified: Alhambra 3-month timed slots, Anne Frank House online-only 6-weeks-ahead — official sites only). Only ~200–400 attractions worldwide need the flag → a quarterly-refreshed curated table (enum: walk-up OK / recommended / timed entry / sells out weeks ahead + advance window) is cheap and high-value; feeds booking-deadline push notifications. |
+| D28 | **Photos: Wikimedia-first** (Wikidata P18 + Commons GeoSearch → Openverse/Flickr-CC → live Google photo last) | Google Places Photos **cannot be cached or stored** (ToS re-confirmed June 2026) — you cannot build a photo library on it. Commons is free, cacheable, attributed. |
+| D29 | **Safety layer: government advisories + open crime data + corroborated community reports; "commonly reported" framing; never certify anything "safe"** | Owner wanted scams/theft/cautions. Sources are free: US State Dept advisories are public domain; UK FCDO and German AA have open licenses; data.police.uk and Berlin's crime atlas are open. Numbeo rejected ($260+/mo, perception-based). Liability research: risk is asymmetric — overstating safety is dangerous, attributed warnings are not; no precedent of an info-only app held liable for attributed safety content. |
+| D30 | **Restaurant authenticity doctrine: locals-only, tourist traps excluded (not deprioritized); "what to order" on every restaurant; city food identity in the City Brief; local meal customs feed solver meal windows** | Owner decision (final round): most travelers want authentic food. Research prompt weighs local-language review share, local food blogs/forums; penalizes tourist-trap signals (monument-adjacent + weak local reputation, tout menus, one-time-visitor review patterns). Dietary rules are architecturally a *filter over the Brain's restaurant pool* — asked in the trip quiz for UX reasons (hard group veto users expect), but changeable anytime with instant re-rank, no re-research. |
+| D31 | **Entity resolution is mandatory infrastructure** | An on-the-go DB ingesting from OSM, research mentions, user adds, and Google verification fills with duplicates without it (and duplicate places fragment learning signals). Match: external IDs first → fuzzy name + geo (<150m) + category → below threshold = new `unverified` place. |
+
+### Round 5 — community, gamification, business model
+
+| # | Decision | Why |
+|---|---|---|
+| D32 | **Post-visit feedback loop: micro-prompts** ("Did you visit? Price still €22? Anything wrong? Rate? Review?") **feeding fact corrections** | Owner requirement; closes the freshness loop the research pipeline can't close alone. "It's closed!" button = instant replan + a dated user-report fact warning the next traveler. |
+| D33 | **Reviews with "Verified visit" labels; DSA/Omnibus compliance stack** | Legal research: as a micro/small platform, DSA obligations are genuinely light — ~5 features (Art. 16 notice-and-action report button, Art. 17 statement of reasons, Art. 14 T&C moderation policy, Arts. 11–13 contact points, Art. 24(3) user counts); the stricter law is the **Omnibus Directive** (applies regardless of size): must publicly disclose whether/how reviews are verified → GPS-confirmed "Verified visit" badge vs disclosed-unverified. Moderation: report button → LLM pre-moderation → human queue → append-only audit log. Ratings cold start: **show nothing** when no ratings (owner decision — no "be the first!" placeholder). |
+| D34 | **Gamification: territory opening + roles (Explorer / Knowledge Keeper / Pathfinder) + themed badges** | Owner idea: celebrate the behaviors that grow the Brain — first-ever visits ("you opened this place for every future traveler," permanent credit), reading/listening, contributing corrections. Rules: celebration never coercion (no streak guilt), contribution impact always shown, leaderboards friends-only by default. Derived entirely from the existing event log — zero extra tracking. |
+| D35 | **Monetization: pay per city; first city free in exchange for personalization opt-in; paying users can opt out; offline never paywalled; official ticket links only in v1 (affiliate deferred)** | Owner model: the one expensive event is deep research (once per city); a purchase covers it + unlimited re-solves (solver ≈ free). First-city-free = the freemium hook. ⚠️ Legal note recorded: "free if you consent" is the **consent-or-pay** pattern (EDPB Opinion 08/2024 scrutinized it for large platforms; defensible for small businesses with a fairly-priced alternative). Key mitigation: using explicitly-given preferences to build the itinerary is **contractual necessity** (Art. 6(1)(b), no consent needed — personalization IS the product); only *cross-trip behavioral learning* rides on consent. Legal review is a launch gate. Consent copy (owner's words): "we never sell your data and never send spam — this only improves your experience," opt-out in settings with honest functionality note. |
+
+### Round 6 — audio, narration content
+
+| # | Decision | Why |
+|---|---|---|
+| D36 | **Audio on demand only; cached per (place, language) on the backend forever; shared across all users; NEVER in offline bundles** | Owner decisions in two steps: (1) no speculative generation (cost), (2) no audio in bundles (browser-cache bloat for something users may never play). Each narration is paid for at most once globally (and TTS is ~free anyway: self-hosted Piper/Kokoro → Google free tier). Offline users get the **deep text** instead — a detailed written account (history, significance, why famous, what happened, what to look for) always bundled. Original plan (prefetch audio into bundles, fixing the Eurotrip gap) was **superseded**; the Eurotrip lesson survives as "no silent gap": offline UI gracefully falls back to the text. |
+
+### Round 7 — onboarding, UI, social import, age (final refinement rounds)
+
+| # | Decision | Why |
+|---|---|---|
+| D37 | **Progressive profiling; the quiz lives at trip creation, not signup** | Friction evidence: every required field costs ~3–5% completion; multi-step forms with ~4 fields/step beat 8-field walls by 53%; no successful travel app front-loads a profile form (Mindtrip/Wanderlog/Airbnb all collect at trip time or infer). But quizzes *work* when every answer visibly changes the output (Headspace: +7.6pp course starts — more than double — from a short personalization quiz; Duolingo's long onboarding works for the same reason). Rule: **ask a question only at the moment its answer visibly changes what the user gets.** Owner refinements: interests and dietary DO belong in the quiz (necessary + expected); walking asked later (it's "solved" post-research — just re-clustering); age asked in-quiz as skippable chips (unlocks pricing + pacing). Sign-in gate placed when research starts (peak motivation) — accounts still required, gate placement is the friction fix. |
+| D38 | **Interests via photo-card swipes (10–15 cards), not checkbox lists** | Pairwise/choice-based elicitation measurably beats absolute ratings for cold start (arxiv.org/abs/2510.27342 and prior choice-based cold-start studies), and it feels like play. Swipes only *initialize* soft weights; curation tiers + drag set real per-trip priorities. |
+| D39 | **Soft weights vs hard exclusions (the "museum problem," owner-raised)** | "Museums ranked low" ≠ "no museums": low interest = fewer, only exceptional ones; a city's defining sight can override a low weight *with an explanation* ("shown despite low museum interest — it's Paris's defining collection. Remove?"). "Never show me X" is a separate explicit control, honored absolutely. Nothing is silently dropped; everything explains itself. |
+| D40 | **"Because you said X" chips everywhere** | The Headspace effect: personalization users can *see* is personalization users believe. Every stored answer must visibly resurface. |
+| D41 | **Research progress = deliberate "Labor Illusion" theater; skeletons, never spinners** | Buell & Norton (Management Science): users *prefer* a travel search taking 60s while showing its work over instant identical results, and value the output more. Stream the research log + drop pins live on the map. Skeleton screens with slow shimmer measurably beat spinners on perceived speed. The slowest moment becomes the most persuasive. |
+| D42 | **Itinerary UI: full-bleed map + persistent non-modal 3-detent bottom sheet + day tabs + numbered day-colored pins; tiers (Must-see/Want/Maybe) + drag with explicit handles** | The most design-praised pattern in the category (Wanderlog teardowns; Google Maps model — map stays interactive behind the sheet). Drag pitfall: whole-card long-press fights scrolling → explicit handles + haptics + accessible "move to…" fallback. Tiers because globally ordering 40 items is cognitively heavy — tier judgments are cheap, drag refines within them. Cards: photo-led, one "why for you" line, one metadata row, max 2 badges. |
+| D43 | **Social import ("share a Reel/TikTok → Want-to-go list"): video-first pipeline** (Apify fetch → Gemini video understanding → extract → confirmation cards), oEmbed captions as fast path, **iOS = paste-link** | Owner decision, and the math supports it: reels are 60s–3min → Gemini video analysis costs $0.005–0.02/clip → full pipeline $0.01–0.03/import, barely more than caption-only, and it solves purely-visual reels (no speech, no place list) via visual landmark recognition — the case captions can never solve. Legal posture: a single user-initiated fetch of a public post ≠ bulk scraping (Meta v. Bright Data 2024 helps for IG; TikTok ToS stricter — vendor holds that risk). iOS: Safari still doesn't support PWA share_target (2026) → paste-first UX. Competitive: Mindtrip has this ("Start Anywhere"); Wanderlog doesn't; Google Maps only does screenshots. Saved places resurface highlighted at trip creation and are boosted in priority. |
+| D44 | **Age bands aligned to European pricing boundaries** (<18 / 18–25 / 26–44 / 45–64 / 65+) + EU/EEA residency + student status; age-aware pacing as **editable presets, never caps** | Research findings: age tiers are near-universal at EU attractions and hinge on residency (under-18 free at most state museums; under-26 **EEA** free at French national museums; 65+ reduced in Italy but *not* France) → cards store {tier, age_range, residency_condition, price, ID_required} and show "Free for you — bring ID"; group price computed from member profiles. Pacing evidence: senior tour operators converge on ~2 anchor sights/day with ~1:1 activity-to-rest; heat-vulnerable 60+ shift outdoors to mornings. Ethics: 61% of families report grandparents *more* active than expected, and most design research carries ageist assumptions → age only pre-selects a relaxed/balanced/packed preset the user confirms or changes. **No mainstream planner does age-adaptive pacing — genuine differentiator.** GDPR: band not birthdate = data minimization; not special-category data. |
+| D45 | **Location-derived learning: derived events on-device, raw GPS never stored server-side** | Owner wanted location capture to learn pace and what travelers enjoy. Implementation preserves the privacy posture: the client converts traces into events (arrival/departure per stop → true dwell; inter-stop pace; lingered-vs-rushed as an enjoyment proxy — lingering = plan undershot, rushing = overshot) and sends only those, consent-gated. Powers personal pace models AND aggregate product learning (real dwell times per place, realistic walking speeds per city). |
+| D46 | **Turn-by-turn delegated to Google Maps deep links per leg** | Owner decision: "Google is already good at it — why take that on?" Also removes our hardest infra problem (transit routing coverage) as a launch dependency — we only need travel-time *estimates* for the solver. We keep the advice layer: scenic-leg annotations ("Tram T6 — direct Eiffel views," small solver prize bonus, cited) and the transit-pass advisor (researched from official tariff pages during city research: all pass tiers + where/how to buy, own app section; plan-aware math "12 rides → 72h pass wins"). Known limit: deep links can't force a specific line — our tip is advisory, Google shows options. |
+
+### Collaboration tech (cross-cutting)
+
+| # | Decision | Why |
+|---|---|---|
+| D47 | **No CRDTs. Postgres as single source of truth + per-column last-writer-wins + fractional indexing + Supabase Broadcast/Presence** | CRDTs earn their complexity for character-level text merging; for a row-based reorderable list, **Figma itself** uses LWW + central server + fractional indexing (their engineering blog is the reference). Fractional indexing: string position keys, only the moved row is written, jitter against concurrent same-slot inserts, periodic rebalance (`fractional-indexing` npm). Supabase Broadcast (sub-50ms, broadcast-from-DB) chosen over Postgres Changes (single-threaded, 50–200ms WAL latency) for the live list. |
+| D48 | **Append-only plan revisions** | Every regenerate/reconfigure/go-now appends a revision with reason + author; restore is one tap. This *structurally* eliminates the Eurotrip app's worst bug (background hydrate clobbering unsaved edits) instead of patching it. |
+
+---
+
+## 4. Feasibility verdicts that shaped scope (the "not possible as imagined" list)
+
+| Naive idea | Verdict & workaround |
+|---|---|
+| LLM generates the schedule | 0.6–4.4% feasible → solver owns the schedule (D13–D19). |
+| "The algorithm improves itself" | Real version = data updating parameters (weights, priors, dwell posteriors, retrained rankers) — measurable via replay harness, reversible, explainable. Not self-modifying code. |
+| Semantic chunking as the learning mechanism | RAG technique, wrong domain → event log + pairwise preference learning (D10). |
+| Google Popular Times | No official API; scraping = ToS violation → research-derived best-time facts, labeled (D25). |
+| Exact ticket prices for every POI | No structured source → cited official prices top ~500/city + user corrections + honest "unknown" (D26). |
+| Structured "pre-booking required" data | Doesn't exist → curated ~200–400-attraction KB, quarterly (D27). |
+| Caching Google Places photos/data | ToS-prohibited → Wikimedia-first (D28). |
+| True time-dependent solver objective | Breaks solver performance → node duplication + soft windows + re-timing polish, equal outcome (D17). |
+| yt-dlp / transcript-scraping YouTube | ToS + active creator litigation → search-grounded analysis + Gemini URL ingestion (D24). |
+| CRDTs for the shared list | Overkill → Figma-style LWW + fractional indexing (D47). |
+| Real-time transit routing everywhere | Per-city coverage problem → delegated to Google Maps deep links; we only estimate times (D46). |
+| Behavioral tracking without consent (EU) | Illegal → consent at login, contractual-necessity carve-out, consent-or-pay flagged for legal review (D35). |
+
+---
+
+## 5. Why the solver works the way it does (plain-language summary for future readers)
+
+Each day = a route where every kept place carries a **prize** (from curated rank, exponentially decayed; boosted by votes and Want-to-go saves; multiplied down by rain for outdoor places; time-sensitive places exist as multiple time-bucket clones with different prizes). The solver maximizes collected prize subject to: opening hours + holidays + timed tickets (hard windows), travel-time matrix (self-hosted OSRM; transit estimated), dwell + buffer per stop (learned over time), 1–2 meal nodes at local meal times snapped to authenticity-vetted restaurants, daily walking budget (second dimension), pace preset (incl. rest-break nodes for relaxed pace), start anchor/time per day, and the **departure deadline minus profile buffer** on the last day (hard). Must-dos are mandatory nodes — droppable never, infeasibility explained. Replans pin what's done, warm-start from the previous solution, reuse the cached matrix → <1s solve, ≤5s end-to-end, no LLM involved. The curated order being a *weight not a sequence* is what makes "do nearby #4 first, hit #1 at golden hour" emerge naturally — and every deviation from strict order is explained in the UI.
+
+---
+
+## 6. Why the City Brain works the way it does
+
+Built lazily (first trip pays to build it, everyone after rides nearly free — this is also the unit-economics engine behind pay-per-city), stored as atomic facts (attribute, never assert), governed by the source hierarchy (official > newest non-official for time-sensitive; per-fact-type selection), refreshed by TTLs (hours 7–30 days re-verified near trip dates; prices yearly; experiential facts 6–12 months), corrected by verified visitors (outranking stale citations after N confirmations), deduplicated by entity resolution, and grown by gamified contribution. Cost: ≤$5–8 one-time per cold city; ~$1/refresh cycle; warm-city trip ≤$0.05.
+
+---
+
+## 7. Research provenance (the ten rounds)
+
+1. **Market + architecture** — competitive teardowns (Mindtrip/Wanderlog/Layla/GuideGeek/Gemini/TripIt), TravelPlanner benchmark, ITINERA, 2026 Google Maps pricing, PMTiles/MapLibre offline, RN-vs-Flutter-vs-Kotlin.
+2. **Codebase survey** — Backend empty; frontend design-complete on mocks.
+3. **Preference learning** — Segment/Snowplow event design, Bradley-Terry/BPR/LambdaMART, in-context LLM personalization (Spotify/Roblox), interleaving (Airbnb), GDPR consent for profiling.
+4. **Decision-card data** — OSM/Wikidata coverage numbers, affiliate APIs (Viator/Tiqets/GYG access models), BestTime, suncalc/PhotoPills golden-hour math, Wikimedia vs Google photo ToS.
+5. **Group collaboration + replanning** — Wanderlog/TripIt/Troupe patterns, group-recommender aggregation strategies + CHIIR 2020 fairness study, Figma LWW + fractional indexing, Supabase Broadcast/Presence, OR-Tools warm start.
+6. **Itinerary engine deep-dive** — TTDP/TOPTW surveys (2014/2022/2025), TD-OPTW & time-varying-profit literature, weather-aware scheduling + patent US 9,127,957, OR-Tools vs Timefold vs VROOM, dwell-time learning. (First attempt died on a session limit; relaunched clean.)
+7. **Content ingestion + UGC law + safety** — YouTube legal landscape (creator lawsuits, Gemini URL path, NotebookLM precedent), DSA micro-platform obligations, Omnibus fake-review rules, advisory licensing (State Dept public domain, FCDO/AA open licenses), safety liability framing.
+8. **Onboarding friction + itinerary UI** — field-cost stats, Headspace/Duolingo/Noom quiz mechanics, swipe elicitation research, travel-app onboarding teardowns, bottom-sheet/drag-handle/skeleton patterns, Labor Illusion (Buell & Norton).
+9. **Social import** — Mindtrip "Start Anywhere", Google Maps screenshot-save, oEmbed capabilities, Apify/ScrapeCreators, Meta v. Bright Data, Web Share Target support matrix.
+10. **Age personalization** — senior pacing numbers, EU age/residency tariff structures, heat adaptation, multigenerational surprise stat, digital-ageism ethics, GDPR minimization.
+
+Key load-bearing sources (for re-verification): TravelPlanner arxiv.org/abs/2402.01622 · ITINERA arxiv.org/abs/2402.07204 · Gavalas 2014 & Ruiz-Meza 2022 TTDP surveys · Buell & Norton "Labor Illusion" (Management Science 2011) · "You Do Not Decide for Me!" (CHIIR 2020) · Figma multiplayer engineering blog · Meta Platforms v. Bright Data (N.D. Cal. 2024) · EDPB Opinion 08/2024 (consent-or-pay) · Gemini video-understanding docs (ai.google.dev) · OR-Tools routing docs (developers.google.com/optimization/routing).
+
+---
+
+## 8. Key numbers reference
+
+| Thing | Number |
+|---|---|
+| LLM-only itinerary feasibility | 0.6–4.4% (with solver: ~97%) |
+| Solve time at 20–60 POIs, 1–7 days | <1s (2–3s cap with guided local search) |
+| Replan budget | ≤5s end-to-end, <1s solve (warm start) |
+| Cold-city Brain build | ≤$5–8 one-time; skeleton ~1–2 min, full 5–15 min |
+| Warm-city trip marginal cost | ≤$0.05 |
+| YouTube via Gemini (30h, low-res) | ~$1–4/city |
+| Reel import (video-first) | $0.01–0.03/link |
+| City PMTiles basemap | 20–80 MB; bundle budget <150 MB/trip |
+| Onboarding: cost per required field | ~3–5% completion |
+| Headspace quiz effect | +7.6pp (>2× lift) |
+| Senior pacing default | ~2 anchor sights/day, ~1:1 activity:rest |
+| Departure buffer defaults | train 45 min / flight 2h30, ±by age band, always editable |
+| Displayed-fact accuracy gate | ≥95% cited-or-N/A (hard validation) |
+| Learning model gates | LambdaMART at ~10⁴ events; embeddings only >10⁵ interactions |
+
+---
+
+## 9. Superseded decisions (kept for honesty — the trail matters)
+
+- **Prefetched narration audio in offline bundles** → superseded twice: first "generate on demand" (cost), then "never in bundles" (cache weight); deep text is the offline answer (D36).
+- **BestTime.app for crowd data** → dropped for research-derived best-time facts (D25).
+- **Guest-only accounts** (original InTown PRD) → accounts required (D5).
+- **Online-only v1** (original InTown PRD) → full offline v1 (D4).
+- **Android-native platform** (original InTown PRD) → PWA first (D1).
+- **Freemium $40–50/yr Pro subscription** (research recommendation) → pay-per-city with first-city-free (D35).
+- **Audio prefetch as the fix for the Eurotrip offline-audio gap** → the *lesson* (no silent offline gap) survives; the *mechanism* changed to text fallback.
+- **oEmbed-caption-first social import** → video-first with caption fast path (D43).
+- **Dietary asked contextually at first restaurant** (UX research suggestion) → owner moved it into the quiz; architecture keeps it a filter either way (D30/D37).
+
+## 10. The Eurotrip lessons ledger (all 11 debt items → structural fixes)
+
+1. Background hydrate clobbered unsaved edits → append-only plan revisions + explicit dirty state (D48).
+2. `setup.sql` drifted from migrations → one canonical migration chain, period.
+3. Three conflicting place-category sets → one unified enum.
+4. Audio cached only after first online play → deep text offline + streamed audio with graceful fallback (D36).
+5. No PWA icons / Android install prompt → full icon set + `beforeinstallprompt` + iOS nudge.
+6. `navigator.onLine` false-positives → reachability heartbeat.
+7. Day filter moved the camera but didn't filter → day tabs actually filter.
+8. Constant-payload auth cookie, no revocation → revocable server-side sessions + rate limits.
+9. No way to create transport legs in UI → multi-city legs have creation UX.
+10. Manual SW cache versioning → automated bust on deploy.
+11. Hardcoded single trip, no scope checks on routes → multi-tenant RLS + ownership checks everywhere.
+
+Also ported wholesale because they worked: Cache Storage for media (iOS renders real Responses natively), manifest reconciliation for cross-device deletion propagation, same-origin document streaming with rollback + orphan self-healing, ref-counted `watchPosition`, graceful-degradation doctrine (missing key → instructional error, never a white screen), the mutually-exclusive selection state machine, and the search-is-an-add-action insight.
+
+---
+
+## 11. Open questions at time of writing (also in FINAL_PRD §20)
+
+Launch cities + the 10 golden eval cities (EU-first recommended) · per-city price point + regional pricing · narration voice identity · review publication timing (capture-first recommended) · age-band buffer defaults need real-user validation · consent-or-pay legal review · US 9,127,957 freedom-to-operate glance.
+
+*End of learnings. Companion: `FINAL_PRD.md` — the specification these decisions produced.*
