@@ -135,7 +135,7 @@ The central asset. **Built on demand, city by city, by the first trip that needs
 
 | Source | What it provides | Method & posture |
 |---|---|---|
-| OSM (+ Geoapify/Overpass) | Places, geos, categories, `fee` flag, wheelchair tags, viewpoint `direction` | Bulk, legally storable |
+| OSM — **bulk tag sweep via the Overpass API** (Overpass QL over a live OSM mirror; kumi.systems primary, overpass-api.de fallback) | Places, geos, categories, `fee` flag, wheelchair tags, viewpoint `direction` — **including unnamed nodes no geocoder can surface** (e.g. an unnamed `tourism=viewpoint` outside the city — the hidden-scenic case, §5.5) | Bulk, legally storable. One-time per cold city → a handful of queries per Brain build, well within public-instance fair use; **degrade path: Geoapify Places API** (same open data, managed) → self-hosted Overpass later if volume demands |
 | Wikidata / Wikipedia | Significance, facts, images (P18), prominence | API, storable, attributed |
 | Wikimedia Commons (GeoSearch) | Photo galleries | Storable + attribution per license |
 | Official sites (attraction, city, transit operator) | Hours, prices, pre-booking rules, transit passes | LLM web research; **facts stored with source URL + retrieved-at date** |
@@ -472,6 +472,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 | Frontend | React + TS + Vite PWA (evolve existing `Frontend_Website`); Zustand; SW + OPFS/Cache Storage/IndexedDB |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
 | Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
+| POI ingestion (City Brain build) | **Overpass API** (Overpass QL bulk tag sweep per city bbox — viewpoints/museums/parks/historic, incl. unnamed nodes geocoding can't reach): kumi.systems primary, overpass-api.de fallback; **Geoapify Places API** as the degrade path (same open data, managed); self-hosted Overpass deferred (like Nominatim/Photon). Distinct from geocoding — this is the bulk sweep that seeds each Brain (§5.2) |
 | Routing (times for solver) | Self-hosted OSRM/Valhalla (walk/drive); Transitous/OTP transit estimates where available; **step-by-step delegated to Google Maps deep links** |
 | Weather | Open-Meteo (free) |
 | Holidays | Nager.Date / OpenHolidays (free) |
@@ -518,6 +519,7 @@ Schema validation at every LLM boundary (bounded retries → degrade) · citatio
 **Per trip:** warm city ≤ $0.05 (scoring + solve); cold city bears the Brain build once. Narration ≈ $0 (self-hosted TTS, generated on demand, globally cached). Verification (Google field-masked) $0.20–0.60/trip worst-case cold.
 **Fixed:** self-hosted on VPS (§12.1) — OSRM + tiles + TTS + solver + DB/API/Realtime ~$50–150/mo initial (starting box ~4 vCPU/16 GB); storage/CDN cheap. BestTime.app **removed** from the plan (owner decision — research-derived timing instead): −$29+/mo.
 **Geocoding:** Geoapify **free tier ≈ $0** at beta scale (~90k/mo free; a 50-user beta consumes a small fraction — debounce autocomplete). Google fallback near-free (fires only on OSM misses; watch the fallback-rate meter — Geocoding 10k free/mo then ~$5/1k; **Places API is pricier and field-mask-controlled**, so mask to `id`/`location` only).
+**OSM POI ingestion (Overpass):** **$0** on public instances (fair-use ~10k queries/day); Brains build once per city, so it's a handful of queries per cold city — comfortably within limits. If volume ever demands it, self-host Overpass (same deferral logic as Nominatim/Photon); Geoapify Places is the managed degrade path.
 **Controls:** per-city and per-API cost meters with alerts, model tiering, cache-first everything; the pricing model itself is the primary cost control (below).
 **Monetization (owner decision #17): pay per city.**
 - The user **pays once per city itinerary**. That purchase funds the one expensive event — the deep research — and includes **unlimited reconfigures, go-nows, and re-solves for that city** (solver runs cost fractions of a cent; weather and all raw context feed the solver freely).
