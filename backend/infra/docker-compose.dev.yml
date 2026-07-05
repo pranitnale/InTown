@@ -1,0 +1,101 @@
+# InTown backend dev stack (§12, §12.1). Local development only — NOT the
+# production deploy (see DEPLOY.md for the VPS posture).
+#
+# Services: Postgres+PostGIS, MinIO (S3-style object storage), Supabase Realtime
+# (Broadcast+Presence for the live curation list, §6.3), and an OSRM placeholder
+# gated behind the `osrm` profile (real region extracts land in P17).
+#
+# Usage:
+#   docker compose -f infra/docker-compose.dev.yml up -d            # core stack
+#   docker compose -f infra/docker-compose.dev.yml --profile osrm up -d
+#   docker compose -f infra/docker-compose.dev.yml config -q        # validate
+#
+# All secrets below are throwaway DEV values. Never reuse in production.
+
+name: intown-dev
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+      POSTGRES_DB: intown
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d intown"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest # dev: pin to a specific RELEASE.* tag for reproducible builds
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: intown_dev
+      MINIO_ROOT_PASSWORD: intown_dev_password
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      # /minio/health/live is the canonical liveness probe; some slim images
+      # lack curl — swap to `mc ready local` if this fails in your image.
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  realtime:
+    # The one Supabase piece we borrow as-is (§12.1): Broadcast + Presence.
+    # NOTE: verify this tag against the current Supabase self-hosting compose
+    # before first `up`; Realtime tags move quickly.
+    image: supabase/realtime:v2.34.47
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "4000"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres_dev_password
+      DB_NAME: intown
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: intown_dev_enc_key_16
+      API_JWT_SECRET: intown-dev-jwt-secret-change-me-000000
+      SECRET_KEY_BASE: intown-dev-secret-key-base-change-me-00000000000000000000000000000000000000
+      ERL_AFLAGS: "-proto_dist inet_tcp"
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+    ports:
+      - "4000:4000"
+
+  osrm:
+    # Placeholder — real routing needs a region extract built in P17
+    # (osrm-extract / osrm-partition / osrm-customize; see osrm/README.md).
+    # Gated behind the `osrm` profile so the core stack starts without it.
+    image: osrm/osrm-backend:latest
+    restart: unless-stopped
+    profiles: ["osrm"]
+    volumes:
+      - ./osrm:/data
+    ports:
+      - "5000:5000"
+    # Expects /data/region.osrm produced by the P17 extract pipeline. Until then
+    # this container will exit until a real extract is mounted.
+    command: ["osrm-routed", "--algorithm", "mld", "/data/region.osrm"]
+
+volumes:
+  postgres_data:
+  minio_data:

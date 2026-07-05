@@ -1,0 +1,26 @@
+{
+  "name": "@intown/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts src/db/migrate.ts --format esm",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "fastify": "^5",
+    "pg": "^8"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "tsx": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "^8",
+    "tsup": "^8"
+  }
+}

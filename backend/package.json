@@ -1,0 +1,14 @@
+{
+  "name": "intown-backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Backend convenience shim — NOT a pnpm workspace package (globs are contracts, frontend, backend/api). Delegates to @intown/api.",
+  "scripts": {
+    "migrate": "pnpm --filter @intown/api run migrate",
+    "test": "pnpm --filter @intown/api run test",
+    "lint": "pnpm --filter @intown/api run lint",
+    "typecheck": "pnpm --filter @intown/api run typecheck",
+    "build": "pnpm --filter @intown/api run build",
+    "dev": "pnpm --filter @intown/api run dev"
+  }
+}
