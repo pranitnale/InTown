@@ -3,6 +3,15 @@ packages:
   - frontend
   - backend/api
 
+# pnpm 10 blocks dependency lifecycle (build) scripts by default. Allowlist the
+# packages that legitimately need a postinstall so a clean `pnpm install` (local
+# or CI) is immediately usable without a manual `pnpm rebuild`. Only `esbuild`
+# ships a real postinstall here (`node install.js`, which places the platform
+# binary that vite/tsx/tsup/vitest all depend on); lightningcss and the other
+# native deps ship prebuilt platform packages with no build step.
+onlyBuiltDependencies:
+  - esbuild
+
 catalog:
   typescript: ^5
   zod: ^4

@@ -6,6 +6,6 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node scripts/boundary-guard.mjs && node --test scripts/ && pnpm -r run test && bash scripts/python-tests.sh"
+    "test": "node scripts/boundary-guard.mjs && node --test \"scripts/*.test.mjs\" && pnpm -r run test && bash scripts/python-tests.sh"
   }
 }
