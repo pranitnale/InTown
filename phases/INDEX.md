@@ -126,8 +126,13 @@ graph TD
   P24 --> P31
   P23 --> P33[P33 Intelligence depth]
   P31 --> P33
-  %% P32 (Native app) requires ALL of P00–P25 (the full MVP) merged; the edges below are the MVP milestone-terminal phases (P12, P19, P20, P22, P23, P24, P25)
-  P12 --> P32[P32 Native app]
+  %% P32 (Native app) requires ALL of P00–P25 (the full MVP) merged; the sources below are every phase within P00–P25 that nothing else in the MVP depends on (the terminal phases), so their ancestor closure is the whole of P00–P25 (P05→P03/P04, P07/P13/P15→P01, P14→P06/P11, P12→P10, P19/P20/P22→P18, P23/P24/P25→P06)
+  P05 --> P32[P32 Native app]
+  P07 --> P32
+  P12 --> P32
+  P13 --> P32
+  P14 --> P32
+  P15 --> P32
   P19 --> P32
   P20 --> P32
   P22 --> P32
@@ -143,7 +148,7 @@ graph TD
 - **Parallel-safety rule.** Two phases may run in parallel sessions **only if** (a) neither depends on the other (transitively) **and** (b) their "Files/areas touched" do **not overlap**. Frontend and backend phases never overlap file areas, so cross-track pairs are almost always safe. Two frontend phases are safe only if they own disjoint `frontend/src/*` subareas; likewise for backend.
 - **`contracts/` is special.** Overlap in `contracts/` is **forbidden** for parallel work. If a phase discovers it needs a contract change, it stops, files a **contract-change request** to the conductor; the change lands as a dedicated `phase/contracts-NN` mini-phase merged to `main`, then all open branches rebase onto it. Never edit `contracts/` on a feature branch and merge silently.
 - **Merge sessions.** A dedicated merge session merges branches **in dependency order** (deps before dependents; backend before its paired frontend), rebasing each onto current `main`, then runs **each merged phase's Verification commands**. Conflicts are resolved *in the merge session*, never by force-push. A conflict between a `frontend/` branch and a `backend/` branch is impossible by construction — if one appears, a phase violated its scope.
-- **Integration checkpoints (frontend↔backend pairs).** After merging a frontend phase together with its backend counterpart — e.g. **P07+P06** (trips), **P13+P11** (research pipeline UX × pipeline), **P15+P14** (curation UI × longlist), **P18+P17** (plan view × map platform), and the **P24** FE/BE notification parts — the merge session must run **both phases' Verification commands together** and then **exercise the integrated flow against the real API instead of fixtures** (the frontend stops replaying its fixture and drives the freshly-merged backend end-to-end). A pair is integrated only when the live flow matches the fixture behavior the UI was built against.
+- **Integration checkpoints (frontend↔backend pairs).** After merging a frontend phase together with its backend counterpart — e.g. **P07+P06** (trips), **P13+P11** (research pipeline UX × pipeline), **P15+P14** (curation UI × longlist), **P18+P17** (plan view × map platform), **P16×P19** (server solver and on-device offline solver must agree on the shared golden fixtures — same solver request/response contracts; run both phases' fixture suites together at merge), and the **P24** FE/BE notification parts — the merge session must run **both phases' Verification commands together** and then **exercise the integrated flow against the real API instead of fixtures** (the frontend stops replaying its fixture and drives the freshly-merged backend end-to-end). A pair is integrated only when the live flow matches the fixture behavior the UI was built against.
 
 ## Status-update rule (single source of truth across parallel sessions)
 
