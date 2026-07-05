@@ -1,0 +1,60 @@
+{
+  "$id": "SolverResponse.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "days": {
+      "items": {
+        "$ref": "SolverDaySchedule.json"
+      },
+      "type": "array"
+    },
+    "objective_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "solve_ms": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "optimal",
+        "feasible",
+        "infeasible",
+        "timeout"
+      ],
+      "type": "string"
+    },
+    "trip_city_id": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    },
+    "unscheduled_poi_ids": {
+      "items": {
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "trip_city_id",
+    "status",
+    "days",
+    "unscheduled_poi_ids",
+    "objective_value",
+    "solve_ms"
+  ],
+  "title": "SolverResponse",
+  "type": "object"
+}

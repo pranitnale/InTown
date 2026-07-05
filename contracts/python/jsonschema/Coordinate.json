@@ -1,0 +1,23 @@
+{
+  "$id": "Coordinate.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "lat": {
+      "maximum": 90,
+      "minimum": -90,
+      "type": "number"
+    },
+    "lng": {
+      "maximum": 180,
+      "minimum": -180,
+      "type": "number"
+    }
+  },
+  "required": [
+    "lat",
+    "lng"
+  ],
+  "title": "Coordinate",
+  "type": "object"
+}

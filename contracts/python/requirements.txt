@@ -1,0 +1,13 @@
+# Python toolchain for the generated `contracts/python` mirror.
+# Installed into the repo-root `.venv` (Python 3.11). Pinned for reproducible,
+# drift-free regeneration in CI. Regenerate with:
+#   pnpm --filter @intown/contracts run generate:python
+#
+# Runtime (models + fixture validation):
+pydantic[email]==2.13.4
+email-validator==2.3.0
+pytest==9.1.1
+# Code generation (zod JSON Schema -> pydantic v2) + its formatters:
+datamodel-code-generator==0.67.0
+black==26.5.1
+isort==8.0.1

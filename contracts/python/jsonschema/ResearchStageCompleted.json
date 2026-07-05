@@ -1,0 +1,36 @@
+{
+  "$id": "ResearchStageCompleted.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "stage": {
+      "enum": [
+        "brain_check",
+        "intake",
+        "candidates",
+        "ground"
+      ],
+      "type": "string"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "type": {
+      "const": "stage_completed",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "stage"
+  ],
+  "title": "ResearchStageCompleted",
+  "type": "object"
+}

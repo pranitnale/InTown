@@ -1,0 +1,35 @@
+{
+  "$id": "BBox.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "max_lat": {
+      "maximum": 90,
+      "minimum": -90,
+      "type": "number"
+    },
+    "max_lng": {
+      "maximum": 180,
+      "minimum": -180,
+      "type": "number"
+    },
+    "min_lat": {
+      "maximum": 90,
+      "minimum": -90,
+      "type": "number"
+    },
+    "min_lng": {
+      "maximum": 180,
+      "minimum": -180,
+      "type": "number"
+    }
+  },
+  "required": [
+    "min_lat",
+    "min_lng",
+    "max_lat",
+    "max_lng"
+  ],
+  "title": "BBox",
+  "type": "object"
+}

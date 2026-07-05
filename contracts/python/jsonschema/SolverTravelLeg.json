@@ -1,0 +1,33 @@
+{
+  "$id": "SolverTravelLeg.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "meters": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "mode": {
+      "enum": [
+        "walk",
+        "transit",
+        "drive",
+        "bike",
+        "ferry"
+      ],
+      "type": "string"
+    },
+    "seconds": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "mode",
+    "seconds",
+    "meters"
+  ],
+  "title": "SolverTravelLeg",
+  "type": "object"
+}

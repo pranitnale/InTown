@@ -1,0 +1,22 @@
+{
+  "$id": "Money.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "amount": {
+      "type": "number"
+    },
+    "currency": {
+      "maxLength": 3,
+      "minLength": 3,
+      "pattern": "^[A-Z]{3}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "amount",
+    "currency"
+  ],
+  "title": "Money",
+  "type": "object"
+}

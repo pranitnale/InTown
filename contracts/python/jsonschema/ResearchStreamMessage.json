@@ -1,0 +1,28 @@
+{
+  "$id": "ResearchStreamMessage.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "$ref": "ResearchStageStarted.json"
+    },
+    {
+      "$ref": "ResearchStageLog.json"
+    },
+    {
+      "$ref": "ResearchPlaceFound.json"
+    },
+    {
+      "$ref": "ResearchCandidateScored.json"
+    },
+    {
+      "$ref": "ResearchStageCompleted.json"
+    },
+    {
+      "$ref": "ResearchCompleted.json"
+    },
+    {
+      "$ref": "SseError.json"
+    }
+  ],
+  "title": "ResearchStreamMessage"
+}

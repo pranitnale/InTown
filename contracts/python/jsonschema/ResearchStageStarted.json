@@ -1,0 +1,30 @@
+{
+  "$id": "ResearchStageStarted.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "brain_check",
+        "intake",
+        "candidates",
+        "ground"
+      ],
+      "type": "string"
+    },
+    "type": {
+      "const": "stage_started",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "stage",
+    "label"
+  ],
+  "title": "ResearchStageStarted",
+  "type": "object"
+}

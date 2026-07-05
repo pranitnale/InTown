@@ -1,0 +1,141 @@
+{
+  "$id": "Poi.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accessibility": {
+      "$ref": "PoiAccessibility.json"
+    },
+    "aliases": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "category": {
+      "enum": [
+        "SIGHT",
+        "MUSEUM",
+        "VIEWPOINT",
+        "PARK_NATURE",
+        "ENTERTAINMENT",
+        "NIGHTLIFE",
+        "SHOPPING",
+        "RESTAURANT",
+        "CAFE",
+        "OTHER"
+      ],
+      "type": "string"
+    },
+    "city_id": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    },
+    "coord": {
+      "anyOf": [
+        {
+          "$ref": "Coordinate.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "coord_confidence": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "coord_resolution": {
+      "enum": [
+        "unverified",
+        "approximate",
+        "verified"
+      ],
+      "type": "string"
+    },
+    "coord_verified_by": {
+      "anyOf": [
+        {
+          "enum": [
+            "open_data",
+            "cross_referenced",
+            "first_traveler_gps"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "type": "string"
+    },
+    "external_ids": {
+      "$ref": "PoiExternalIds.json"
+    },
+    "id": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    },
+    "indoor_outdoor": {
+      "enum": [
+        "indoor",
+        "outdoor",
+        "mixed"
+      ],
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "prominence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "SourceRef.json"
+      },
+      "type": "array"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "city_id",
+    "name",
+    "aliases",
+    "category",
+    "coord",
+    "coord_confidence",
+    "coord_verified_by",
+    "coord_resolution",
+    "external_ids",
+    "source_refs",
+    "prominence",
+    "indoor_outdoor",
+    "accessibility",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "Poi",
+  "type": "object"
+}

@@ -1,0 +1,28 @@
+{
+  "$id": "SseError.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "fatal": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string"
+    },
+    "type": {
+      "const": "error",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "code",
+    "message",
+    "fatal"
+  ],
+  "title": "SseError",
+  "type": "object"
+}
