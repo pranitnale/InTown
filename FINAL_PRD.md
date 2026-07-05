@@ -2,7 +2,7 @@
 
 > **Status:** Production specification — the single authoritative PRD, **ready to implement**. Grounded in ten deep-research rounds, both parent apps (the original InTown PRD and the as-built Europe Trip Map app), a survey of the current codebase, and all owner decisions. The complete reasoning trail lives in `LEARNINGS.md`; the verified UI/UX evidence base lives in `UI_UX_RESEARCH.md` (all claims adversarially verified 2026-07-04 — zero refuted).
 > **Date:** 2026-07-04 (v2: verified Color System v2 in §17, corrected research claims, parallel work-package implementation plan in §18).
-> **⚠️ Codebase directive:** the existing `Frontend_Website/` is a design-era mock (placeholder map, fake generation, hardcoded data) whose only value — the UX flow ideas and lessons — is already absorbed into this document. **It is scrap. Phase P00 (§18) deletes it entirely and the architecture starts from scratch.** No code in this repository is to be treated as a foundation; this PRD is the foundation.
+> **⚠️ Codebase directive:** the existing `Frontend_Website/` is a design-era mock (placeholder map, fake generation, hardcoded data) whose only value — the UX flow ideas and lessons — is already absorbed into this document. **It is scrap — already deleted (commit 301a7d3); phase P00 (§18) confirms it is gone, and the architecture starts from scratch.** No code in this repository is to be treated as a foundation; this PRD is the foundation.
 > **Vision in one line:** *A traveler normally needs 100+ hours of YouTube videos and blog posts to plan the perfect city trip. InTown reads all of it, verifies it, personalizes it, schedules it, and then walks the trip with you — offline.*
 
 ---
@@ -248,7 +248,7 @@ Every stored answer must later surface as a visible **"because you said X" chip*
 
 ### 6.4 Trip setup [P1]
 
-📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar with endowed first step per §6.2) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users. **Built from scratch per this spec** — the old `Frontend_Website` wizard is deleted with the rest of the mock frontend (phase P00); its only surviving contribution is the flow idea, which this section now fully specifies: one question per screen, visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
+📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar with endowed first step per §6.2) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users. **Built from scratch per this spec** — the old `Frontend_Website` wizard was already deleted with the rest of the mock frontend (phase P00 confirms it is gone); its only surviving contribution is the flow idea, which this section now fully specifies: one question per screen, visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
 
 ### 6.5 Research pipeline UX [P1]
 
@@ -486,7 +486,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TS + Vite PWA in the top-level **`frontend/`** folder — **built from scratch; the existing `Frontend_Website/` is deleted in phase P00 (§18, mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
+| Frontend | React + TS + Vite PWA in the top-level **`frontend/`** folder — **built from scratch; the old `Frontend_Website/` is already deleted (phase P00 confirms it is gone; mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
 | Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
 | POI ingestion (City Brain build) | **Overpass API** (Overpass QL bulk tag sweep per city bbox — viewpoints/museums/parks/historic, incl. unnamed nodes geocoding can't reach): kumi.systems primary, overpass-api.de fallback; **Geoapify Places API** as the degrade path (same open data, managed); self-hosted Overpass deferred (like Nominatim/Photon). Distinct from geocoding — this is the bulk sweep that seeds each Brain (§5.2) |
@@ -742,10 +742,10 @@ The build is decomposed into **phases** (P00–P33, `phases/INDEX.md`): units si
 
 One session, conductor-reviewed, merged to `main` before any parallel phase starts. **The `frontend/`, `backend/`, and `contracts/` code folders are created here** (they do not exist until P00 lands). Full per-phase detail is in `phases/` (P00 file); the essentials:
 
-- **Scrap the mock frontend:** `git rm -r Frontend_Website/` — per the §0 directive, zero code reuse. Create the empty `frontend/` and `backend/` trees above.
+- **Old mock frontend already deleted:** `Frontend_Website/` was removed (commit 301a7d3); P00 confirms it is gone — per the §0 directive, zero code reuse. Create the empty `frontend/` and `backend/` trees above.
 - **Scaffold** the pnpm workspace + Python worker skeletons + the full `contracts/` (types, API/SSE schemas, event catalog, unified category enum, design tokens, fixtures, and the generated `python/` mirror) + the complete §10 schema as the baseline migration chain.
 - **CI skeleton:** typecheck + lint + unit tests per package; §17.9 contrast assertion (frontend); migration-chain check (backend); golden-fixture schema validation against both `contracts/types` (TS) and `contracts/python` (the honesty check that keeps mocks real); a **boundary guard** that fails CI if `frontend/` imports from `backend/` or vice-versa (only `contracts/` may cross).
-- **DoD:** `cd backend && docker compose up` gives a healthy dev stack; `pnpm -w test` green; `frontend` builds a deployable static bundle; fixtures validate on both sides; boundary guard active; `Frontend_Website/` gone; root `README.md` maps every path to its owning phase.
+- **DoD:** `cd backend && docker compose up` gives a healthy dev stack; `pnpm -w test` green; `frontend` builds a deployable static bundle; fixtures validate on both sides; boundary guard active; `Frontend_Website/` confirmed gone (already deleted); root `README.md` maps every path to its owning phase.
 
 ### 18.4 The phase plan and the old-WP → new-phase map
 
@@ -758,22 +758,22 @@ The original coarse work packages (WP-0, B1–B9, F1–F8, and the deferred P2/P
 | WP-0 | Foundations | **P00** |
 | F1 | Design system & app shell | **P01** |
 | B1 | Auth, profile & consent API | **P02 + P04** |
-| F2 | Map platform | **P03 + P05** |
-| B5 | Trips, collaboration & realtime API | **P06 + P14** (partial) |
-| F3 | Auth, profile & onboarding UI | **P07** |
+| F2 | Map platform | **P17** (backend) **+ P18** (map UI; plan-view shell shared with F5) |
+| B5 | Trips, collaboration & realtime API | **P06 + P14** (longlist persistence — partial) |
+| F3 | Auth, profile & onboarding UI | **P03 + P05** |
 | B2 | City Brain | **P08 + P09 + P10** |
 | B3 | Research pipeline | **P11** |
-| F4 | Trips & curation UI | **P13** |
-| B6 | Geo & adaptation APIs | **P14** |
-| F5 | Plan, cards & companion | **P15** |
+| F4 | Trips & curation UI | **P07 + P15** (P15 also owns the decision cards) |
+| B6 | Geo & adaptation APIs | **P17** (geo — partial) **+ P19** |
+| F5 | Plan, cards & companion | **P13 + P18 + P20** (research UX, plan view, companion; decision cards ship in P15 — see F4) |
 | B4 | Solver service | **P16 + P19** (partial) |
-| B7 | Narration & content API | **P17** |
-| F6 | Offline, PWA runtime & on-device solver | **P18** |
-| F7 | City Brief, safety UI & narration player | **P20** |
-| B8 | Events, learning v1 & replay harness | **P21** |
-| F8 | Notifications UI | **P22** |
-| B9 | Notifications API | **P23** |
-| — | Notifications (rich, [P2]) | **P24** |
+| B7 | Narration & content API | **P21** |
+| F6 | Offline, PWA runtime & on-device solver | **P22 + P19** (on-device solver — partial) |
+| F7 | City Brief, safety UI & narration player | **P12 + P21** (narration player — partial) |
+| B8 | Events, learning v1 & replay harness | **P23** |
+| F8 | Notifications UI | **P24** (UI) |
+| B9 | Notifications API | **P24** (API) |
+| — | Notifications (rich, [P2]) / email digests | **P31** |
 | — | Payments (Stripe, [P2] — §15, decision #26) | **P25** |
 | — | [P2] features: vault, multi-city, reviews+moderation, gamification, social import, LambdaMART | **P26–P31** |
 | — | [P3]: native app, embeddings/bandits, group-fairness rotation | **P32–P33** |

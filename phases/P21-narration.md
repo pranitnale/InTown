@@ -24,7 +24,7 @@
 - Framing linter on generated text (no "safe" certification).
 
 ## Files/areas touched
-- `backend/services/pipeline/narration`, `backend/api/src/narration`, `frontend/src/narration-player`.
+- `backend/workers/pipeline/narration`, `backend/api/src/narration`, `frontend/src/narration-player`.
 
 ## Acceptance criteria
 1. Deep text generated per (place, language) from fixture facts, cited, and stored for card + bundle inclusion.

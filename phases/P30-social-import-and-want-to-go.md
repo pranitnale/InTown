@@ -29,7 +29,7 @@
 - iOS is paste-first (no share_target).
 
 ## Files/areas touched
-- `backend/api/src/import` + `services/pipeline/social-import` (contract-approved), `frontend/src/want-to-go`.
+- `backend/api/src/import` + `workers/pipeline/social-import` (contract-approved), `frontend/src/want-to-go`.
 
 ## Acceptance criteria
 1. Android share_target (url + text) and iOS paste-box both feed the pipeline.

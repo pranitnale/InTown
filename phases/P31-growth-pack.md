@@ -23,7 +23,7 @@
 - Interleaving for eval at small traffic; every model change measured on the replay harness with algo_version.
 
 ## Files/areas touched
-- `backend/api/src/{email,share}` + `services/pipeline/learning` (v2 sub-area), `frontend/src` share-view + email-prefs, build tooling for TWA.
+- `backend/api/src/{email,share}` + `workers/pipeline/learning` (v2 sub-area), `frontend/src` share-view + email-prefs, build tooling for TWA.
 
 ## Acceptance criteria
 1. Email digest ("tickets to book now") sends via SMTP; opt-in per category, default off.

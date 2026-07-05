@@ -31,7 +31,7 @@
 - Recorded HTTP fixtures in CI — no live calls.
 
 ## Files/areas touched
-- `backend/services/pipeline/ingestion` (web/media/safety sub-areas), viewshed util, janitor job.
+- `backend/workers/pipeline/ingestion` (web/media/safety sub-areas), viewshed util, janitor job.
 
 ## Acceptance criteria
 1. Official-site facts stored with URL + retrieved-at; operational facts win over blogs (integration with P08 resolver).

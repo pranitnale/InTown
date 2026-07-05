@@ -20,7 +20,7 @@
 - Motion: springy sheet physics, shimmer (left→right) skeletons, `prefers-reduced-motion` honored; CSS Scroll Snap for tabs.
 
 ## Out of scope
-- Real auth logic (P02/P03), map rendering (P17/P18/F2 map lives in P18's area? — map platform UI is P18), curation/plan/companion screens (their phases fill the skeletons). Pin-category final ramp is generated here and **returned to contracts via a contract-change request** (not edited on this branch).
+- Real auth logic (P02/P03), map rendering (map platform backend is P17; the map UI lives in P18's area), curation/plan/companion screens (their phases fill the skeletons). Pin-category final ramp is generated here and **returned to contracts via a contract-change request** (not edited on this branch).
 
 ## Key constraints
 - 60/30/10 with warmth budget; **max one terracotta element per view**. Blue = function, terracotta = emotion — never cross. Error = `#B91C1C` family + icon, never terracotta. Never white body text on jade/amber/success fills (v1 failures). Amber = warning only, always dark text. Lightness before hue for adjacent meaningful colors.

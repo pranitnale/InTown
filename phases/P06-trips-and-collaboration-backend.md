@@ -14,7 +14,7 @@
 - **Membership:** `trip_members(role)`; join/leave; role changes.
 - **Per-member votes:** `place_votes` (👍/👎 per place per member); attribution on collaboration *actions* (who dragged, who added — edit history), but **preference disclosures are aggregate-only** ("3 of 4 want this"), never named ("Ana vetoed this").
 - **Fractional-indexing order (§6.3, D47):** string position keys, only the moved row written, jitter against concurrent same-slot inserts, periodic rebalance. **No CRDTs.**
-- **Supabase Realtime container (Broadcast + Presence):** broadcast-from-DB triggers (sub-50ms) for the live list; Presence for avatars/viewing indicators. Postgres is the single source of truth; **per-column LWW** with server timestamps; optimistic UI reconciled on broadcast (client side is P04/F4).
+- **Supabase Realtime container (Broadcast + Presence):** broadcast-from-DB triggers (sub-50ms) for the live list; Presence for avatars/viewing indicators. Postgres is the single source of truth; **per-column LWW** with server timestamps; optimistic UI reconciled on broadcast (client side lives in P15 (curation screen) and P07 (trip screens)).
 - **Preference-merge engine (§6.3, D8):** hard constraints (dietary, mobility, budget caps) = **filters** (anyone's veto governs); soft interests = **average-with-misery-threshold** (a place any member vetoes/scores very low is excluded or flagged); disagreement surfaced as **aggregate counts only**.
 
 ## Out of scope

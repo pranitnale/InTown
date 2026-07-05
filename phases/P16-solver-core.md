@@ -4,7 +4,7 @@
 
 **Milestone.** M3 — Intelligence spine.
 **Depends on.** P00 only (solver request/response fixtures) — highly parallel-safe.
-**Parallel-safe with.** Every phase (owns `services/solver` exclusively; builds only against fixtures).
+**Parallel-safe with.** Every phase that does not depend on P16 — i.e. all except P19 and P28, and their downstream chains (owns `backend/workers/solver` exclusively; builds only against fixtures).
 **Size.** L.
 
 ## In scope (§8, §6.8)
@@ -32,7 +32,7 @@
 - Missing an anchored deadline is the worst failure — buffers conservative by default, always shown/editable downstream.
 
 ## Files/areas touched
-- `backend/services/solver` (exclusive).
+- `backend/workers/solver` (exclusive).
 
 ## Acceptance criteria
 1. Solves the fixture request in <3s incl. golden-hour clones, weather multipliers, and deadline buffers.
@@ -47,7 +47,7 @@
 
 ## Verification commands
 ```
-cd backend/services/solver && python -m pytest
+cd backend/workers/solver && python -m pytest
 cd backend && npm run lint  # if solver has a lint target, else per-service linter
 ```
 

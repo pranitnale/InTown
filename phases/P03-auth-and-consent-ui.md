@@ -4,7 +4,7 @@
 
 **Milestone.** M2 — Accounts & profiles.
 **Depends on.** P01 (design system, route skeleton, primitives), P02 (auth endpoints + session semantics).
-**Parallel-safe with.** Backend phases and other frontend phases owning disjoint `src/` areas (P07 trips, P15 curation, P18 plan). Not with P05 (shares `src/settings`? — P05 owns onboarding+settings; coordinate: P03 owns `src/auth`, consent flow lives in `src/auth`).
+**Parallel-safe with.** Backend phases and other frontend phases owning disjoint `src/` areas (P07 trips, P15 curation, P18 plan). Not with P05: P05 owns onboarding + settings while P03 owns `src/auth` and the consent flow lives in `src/auth`, so the two must coordinate the `src/settings` opt-out control at merge.
 **Size.** M.
 
 ## In scope (§6.1, §16.1, §6.2)

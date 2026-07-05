@@ -12,7 +12,7 @@
 ### Repo scaffold (§12, §18.3)
 - Root: `pnpm-workspace.yaml` (globs: `contracts`, `frontend`, `backend/api`), CI workflows, `README.md` mapping every path to its owning phase. **No app code at root.**
 - `frontend/` — Vite + React 18 + TypeScript PWA skeleton (Tailwind, Zustand). Boots to a blank shell, builds a deployable static bundle. `vercel.json` (Root Directory = `frontend`, pulls `contracts` as workspace dep). `ui-tokens/` generated from `../contracts/design-tokens.json`.
-- `backend/` — Fastify TS API skeleton (`api/src/`), Python worker skeletons (`services/pipeline/`, `services/solver/`), `db/migrations/` (single canonical chain — 🧭 ET debt #2: never a separate `setup.sql`), `infra/docker-compose.dev.yml` (Postgres 16 + PostGIS, MinIO, Supabase **Realtime** container only, OSRM placeholder), `osrm/` config, deploy notes for the VPS (§12.1).
+- `backend/` — Fastify TS API skeleton (`api/src/`), Python worker skeletons (`workers/pipeline/`, `workers/solver/`), `db/migrations/` (single canonical chain — 🧭 ET debt #2: never a separate `setup.sql`), `infra/docker-compose.dev.yml` (Postgres 16 + PostGIS, MinIO, Supabase **Realtime** container only, OSRM placeholder), `osrm/` config, deploy notes for the VPS (§12.1).
 - Old `Frontend_Website/` is already deleted on this branch — confirm it is gone; zero code reuse.
 
 ### `contracts/` v1 — frozen (§10, §11, §5.4, §9.1, §17)

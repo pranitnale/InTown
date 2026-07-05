@@ -64,6 +64,19 @@ Status legend: ⬜ not started · 🟨 in progress (branch) · ✅ merged.
 | P32 | Native app (React Native/Expo) | M8 | P00–P25 (MVP) | full-stack | XL | ⬜ |
 | P33 | Intelligence & community depth | M8 | P23, P31 | backend | L | ⬜ |
 
+## Milestone legend (M1–M8 groupings + the demoable capability each unlocks)
+
+Milestones group the phases that land together; each unlocks a concrete, demoable capability.
+
+- **M1 — Foundation** (P00, P01): the frozen `contracts/` seam plus a booting dev stack. *Demo:* green CI, a healthy `docker compose` backend, and a deployable installable PWA shell.
+- **M2 — Accounts & profiles** (P02–P05): auth, consent, and progressive taste profiling. *Demo:* a user signs in, gives consent, and completes onboarding into a saved traveler + taste profile.
+- **M3 — Intelligence spine** (P08–P11, P16): City Brain, ingestion, AI pipeline, and solver running headless against real sources/fixtures. *Demo:* a cold city warms into cited atomic facts and the solver returns a feasible day plan from a request.
+- **M4 — Collaboration & vertical slice** (P06, P07, P12–P15, P17, P18): the end-to-end golden-city slice. *Demo:* create trip → research → curate → solve → plan view + City Brief for one golden city.
+- **M5 — Travel day** (P19–P22): companion mode, narration, adaptation/replanning, offline. *Demo:* walk a saved plan offline in companion mode with narration and a ≤5s "go-now" replan.
+- **M6 — Feedback / notifications / launch** (P23–P25): post-visit feedback, notifications, and payments. *Demo:* finish a trip, leave feedback, receive a leave-by reminder, and pay per-city (first city free).
+- **M7 — P2 depth** (P26–P31): vault, reviews + moderation, multi-city, gamification, social import, growth pack. *Demo:* import a want-to-go list, plan a multi-city trip, and store tickets in the vault.
+- **M8 — P3 expansion** (P32, P33): native app plus intelligence/community depth. *Demo:* the React Native/Expo app runs the MVP flow, extended by embeddings/bandits and community guides.
+
 ## Dependency graph
 
 ```mermaid
@@ -113,7 +126,14 @@ graph TD
   P24 --> P31
   P23 --> P33[P33 Intelligence depth]
   P31 --> P33
-  P25 --> P32[P32 Native app]
+  %% P32 (Native app) requires ALL of P00–P25 (the full MVP) merged; the edges below are the MVP milestone-terminal phases (P12, P19, P20, P22, P23, P24, P25)
+  P12 --> P32[P32 Native app]
+  P19 --> P32
+  P20 --> P32
+  P22 --> P32
+  P23 --> P32
+  P24 --> P32
+  P25 --> P32
 ```
 
 ## Parallel-session protocol (binding)
@@ -123,6 +143,7 @@ graph TD
 - **Parallel-safety rule.** Two phases may run in parallel sessions **only if** (a) neither depends on the other (transitively) **and** (b) their "Files/areas touched" do **not overlap**. Frontend and backend phases never overlap file areas, so cross-track pairs are almost always safe. Two frontend phases are safe only if they own disjoint `frontend/src/*` subareas; likewise for backend.
 - **`contracts/` is special.** Overlap in `contracts/` is **forbidden** for parallel work. If a phase discovers it needs a contract change, it stops, files a **contract-change request** to the conductor; the change lands as a dedicated `phase/contracts-NN` mini-phase merged to `main`, then all open branches rebase onto it. Never edit `contracts/` on a feature branch and merge silently.
 - **Merge sessions.** A dedicated merge session merges branches **in dependency order** (deps before dependents; backend before its paired frontend), rebasing each onto current `main`, then runs **each merged phase's Verification commands**. Conflicts are resolved *in the merge session*, never by force-push. A conflict between a `frontend/` branch and a `backend/` branch is impossible by construction — if one appears, a phase violated its scope.
+- **Integration checkpoints (frontend↔backend pairs).** After merging a frontend phase together with its backend counterpart — e.g. **P07+P06** (trips), **P13+P11** (research pipeline UX × pipeline), **P15+P14** (curation UI × longlist), **P18+P17** (plan view × map platform), and the **P24** FE/BE notification parts — the merge session must run **both phases' Verification commands together** and then **exercise the integrated flow against the real API instead of fixtures** (the frontend stops replaying its fixture and drives the freshly-merged backend end-to-end). A pair is integrated only when the live flow matches the fixture behavior the UI was built against.
 
 ## Status-update rule (single source of truth across parallel sessions)
 

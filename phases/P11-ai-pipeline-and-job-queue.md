@@ -33,7 +33,7 @@
 - Provider-agnostic tiers; no hardcoded vendor beyond the sanctioned Gemini-for-YouTube path.
 
 ## Files/areas touched
-- `backend/services/pipeline/research`, `backend/api/src/research`, job-queue tables (contract-approved migration).
+- `backend/workers/pipeline/research`, `backend/api/src/research`, job-queue tables (contract-approved migration).
 
 ## Acceptance criteria
 1. Postgres job queue enqueues, leases, retries with backoff, and dead-letters (tests).

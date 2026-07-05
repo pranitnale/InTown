@@ -9,7 +9,7 @@
 
 ## In scope (§5.2)
 - **Overpass bulk sweep (§5.2, D56):** Overpass QL tag sweep per city bbox (viewpoints/museums/parks/historic, incl. **unnamed nodes** a geocoder can't surface — e.g. an unnamed `tourism=viewpoint`). Primary **kumi.systems**, fallback **overpass-api.de**. Pulls places, geos, categories, `fee` flag, wheelchair tags, viewpoint `direction`. Feeds `pois` + `poi_geo_observations` (source_kind = OSM) through P08's resolution.
-- **Wikidata / Wikipedia:** significance, facts, prominence, images (P18 property). API, storable, attributed → `facts` with citations.
+- **Wikidata / Wikipedia:** significance, facts, prominence, images (Wikidata property `P18`). API, storable, attributed → `facts` with citations.
 - **Wikimedia Commons (GeoSearch):** photo galleries, storable + attribution per license → `poi_enrichment`/photo refs.
 - **Geoapify geocoding (§5.2, D51):** primary forward/reverse geocoding + name resolution for user-typed addresses/place names; free tier (~3,000 credits/day), results storable (open data); **debounce autocomplete**. Feeds geo-observations (source_kind = geoapify/open-data).
 - **Cold-city skeleton build (§5.1):** orchestrate the above into a ~1–2 min skeleton (places, geos, hours, photos) so a user can start curating before deep enrichment.
@@ -26,7 +26,7 @@
 - In CI, use recorded HTTP fixtures — no live calls.
 
 ## Files/areas touched
-- `backend/services/pipeline/ingestion` (structured sources sub-area), integrates with `backend/services/pipeline/brain`.
+- `backend/workers/pipeline/ingestion` (structured sources sub-area), integrates with `backend/workers/pipeline/brain`.
 
 ## Acceptance criteria
 1. Overpass sweep parses a recorded fixture response into `pois` incl. an unnamed viewpoint node (test).

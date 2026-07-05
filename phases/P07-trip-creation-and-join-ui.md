@@ -3,7 +3,7 @@
 **Goal.** Build the `/trips` list, the full `/trips/new` setup wizard, and the `/join/:code` invite landing — against contracts fixtures, integrating with P06 at merge.
 
 **Milestone.** M4 — Collaboration & vertical slice.
-**Depends on.** P01 (design system, route skeleton, quiz framework primitives from P05 land in shared design-system? — P07 reuses P05's quiz framework, so prefer P05 merged; if built in parallel, mock the framework and reconcile at merge).
+**Depends on.** P01 (design system, route skeleton, primitives). Soft dependency: reuses P05's photo-swipe component for the wizard's swipe round; if P05 is not merged yet, stub the swipe step behind the contracts fixture and reconcile at merge.
 **Parallel-safe with.** Backend phases and frontend phases on disjoint areas (P15, P18). Owns `src/trips`.
 **Size.** M.
 

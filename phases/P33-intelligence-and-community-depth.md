@@ -24,7 +24,7 @@
 - Community guides moderated (DSA/Omnibus).
 
 ## Files/areas touched
-- `backend/services/pipeline/learning` (v3 sub-area), `backend/api/src/{guides,affiliate}` (contract-approved), `frontend/src/{journal,guides}`.
+- `backend/workers/pipeline/learning` (v3 sub-area), `backend/api/src/{guides,affiliate}` (contract-approved), `frontend/src/{journal,guides}`.
 
 ## Acceptance criteria
 1. v3 models (two-tower/bandits + LLM reranker) train and are gated behind the ~10⁵-interaction threshold (not enabled below it).

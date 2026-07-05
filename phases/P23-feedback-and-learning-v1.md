@@ -28,7 +28,7 @@
 - Impressions (`list_shown` full ranking) are required — without them you cannot learn.
 
 ## Files/areas touched
-- `backend/api/src/events`, `backend/services/pipeline/learning`, event/projection tables (contract-approved).
+- `backend/api/src/events`, `backend/workers/pipeline/learning`, event/projection tables (contract-approved).
 
 ## Acceptance criteria
 1. Append-only enforced (no UPDATE grant — test); impressions logged with algo_version; consent flag respected end-to-end.

@@ -20,7 +20,7 @@ opened on this repo:**
 ## Project layout
 
 **Target layout** (the code folders below are created in phase **P00** — they
-do not exist until P00 lands; the mock `Frontend_Website/` is deleted in P00):
+do not exist until P00 lands; the mock `Frontend_Website/` was already deleted before P00 — P00 just confirms it is gone):
 
 - `frontend/` — Vite + React 18 + TypeScript PWA (Tailwind). Vercel-deployed.
   Frontend phases write only here.

@@ -27,7 +27,7 @@
 - One unified category enum (🧭 ET debt #3).
 
 ## Files/areas touched
-- `backend/services/pipeline/brain`, `backend/api/src/pois`, brain-table migrations (contract-approved).
+- `backend/workers/pipeline/brain`, `backend/api/src/pois`, brain-table migrations (contract-approved).
 
 ## Acceptance criteria
 1. `facts` store matches the exact §5.3 tuple; inserts are append-only (no UPDATE grant — test).

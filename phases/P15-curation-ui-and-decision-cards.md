@@ -16,7 +16,7 @@
 - **Disagreement chips: aggregate-only** ("3 of 4 want this"), never named. Footer CTA "Build my days." Curation revisitable; changes re-solve.
 
 ## Out of scope
-- Longlist/card-data backend (P14). Plan view (P18). Realtime client is P04/F4? — realtime consumer lives in F4/P... trips+curation UI. This phase consumes broadcast for the list where it overlaps trips; coordinate with P07 area boundary (P07 owns `src/trips`, P15 owns `src/curation`).
+- Longlist/card-data backend (P14). Plan view (P18). The realtime client for the curation screen — the Supabase Realtime Broadcast/Presence consumer plus optimistic-UI reconciliation — is owned by P15. It consumes the trip broadcast for the list where it overlaps trips; coordinate with the P07 area boundary (P07 owns `src/trips`, P15 owns `src/curation`).
 
 ## Key constraints
 - Order is a priority weight, not a visit sequence.

@@ -18,7 +18,7 @@ Procedure:
    uncommitted changes) and the touched files in context.
 2. For each acceptance criterion in the brief, gather direct evidence:
    run the build/lint/tests yourself, exercise the behavior where feasible
-   (e.g. `npm run build` in `Frontend_Website/`, run a script, hit an
+   (e.g. `npm run build` in `frontend/`, run a script, hit an
    endpoint), and read the code paths involved.
 3. You may not modify source files. Scratch files for probing go in /tmp.
 
