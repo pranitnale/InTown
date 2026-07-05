@@ -9,8 +9,12 @@
 -- attaches to the parent and cascades to partitions.
 CREATE TABLE events (
   id           uuid        NOT NULL DEFAULT gen_random_uuid(),
-  user_id      uuid        REFERENCES users (id) ON DELETE SET NULL,  -- pseudonymized; nulled on erasure
-  trip_id      uuid        REFERENCES trips (id) ON DELETE SET NULL,
+  -- Pseudonymous, intentionally FK-free (§16.1): events are an append-only log,
+  -- so an ON DELETE FK action would fire against the append-only trigger (0010)
+  -- and abort GDPR erasure / trip deletion. Erasing a user or trip simply
+  -- orphans the pseudonym here while anonymous aggregates survive.
+  user_id      uuid,
+  trip_id      uuid,
   event_type   text        NOT NULL,                 -- catalog name; payload in event_data
   event_data   jsonb       NOT NULL DEFAULT '{}',
   occurred_at  timestamptz NOT NULL DEFAULT now(),
@@ -23,6 +27,7 @@ CREATE TABLE events_default PARTITION OF events DEFAULT;
 
 CREATE INDEX events_occurred_at_idx ON events (occurred_at);
 CREATE INDEX events_user_idx        ON events (user_id);
+CREATE INDEX events_trip_idx        ON events (trip_id);
 CREATE INDEX events_type_idx        ON events (event_type);
 
 -- Per-user preference projection (§9.2 v1): deterministic weights + a compact

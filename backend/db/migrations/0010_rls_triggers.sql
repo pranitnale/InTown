@@ -28,20 +28,37 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Append-only enforcement: block UPDATE and DELETE on the immutable logs
--- (§5.3, §5.5, §9.1, §10). Any legitimate teardown/erasure (trip deletion,
--- GDPR erasure) runs in a privileged maintenance routine that sets
--- `session_replication_role = 'replica'` to bypass these triggers; event
--- retention is done by dropping/detaching time partitions (DDL, not row DELETE),
--- so it is unaffected. `events.user_id`/`trip_id` are intentionally FK-free
--- pseudonymous keys (§16.1): erasing a user simply orphans the pseudonym while
--- anonymous aggregates survive — no cascade UPDATE/DELETE is ever issued here.
+-- Append-only enforcement: block *direct* UPDATE and DELETE on the immutable
+-- logs (§5.3, §5.5, §9.1, §10), while still allowing system-initiated FK
+-- cascades to pass through. The guard fires only at `pg_trigger_depth() = 1`
+-- (i.e. when this trigger is the outermost one — a client statement issued
+-- straight against the log). Rows removed by an ON DELETE CASCADE arrive via
+-- an internal FK-action trigger, so their append-only trigger runs at depth
+-- > 1 and is permitted. This lets `plan_revisions` (users -> trips ->
+-- trip_cities -> plan_revisions) and `poi_geo_observations` (cities -> pois ->
+-- poi_geo_observations) be torn down by trip deletion / GDPR erasure / POI
+-- purges, without opening a hole for direct edits.
+-- `events.user_id`/`trip_id` carry NO FK (0008): they are pseudonymous keys
+-- (§16.1) that are simply orphaned on erasure, so events are never cascaded.
+-- Event retention is done by dropping/detaching time partitions (DDL, not row
+-- DELETE), so it is likewise unaffected.
+-- NB: do NOT use `session_replication_role = 'replica'` as an escape hatch — it
+-- disables FK-action triggers too, so the very cascades this design relies on
+-- would silently no-op, leaving orphaned children.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION reject_mutation() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'table "%" is append-only: % is not permitted', TG_TABLE_NAME, TG_OP
-    USING ERRCODE = 'restrict_violation';
+  -- Only reject when this is the outermost trigger (a direct client DML).
+  -- Cascaded deletes reach here at depth > 1 and are allowed through.
+  IF pg_trigger_depth() = 1 THEN
+    RAISE EXCEPTION 'table "%" is append-only: % is not permitted', TG_TABLE_NAME, TG_OP
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $$;
 

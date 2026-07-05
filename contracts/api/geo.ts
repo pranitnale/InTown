@@ -16,9 +16,33 @@ export const GEO_TRAVEL_MODE_VALUES = ['walking', 'transit', 'driving'] as const
 export const GeoTravelMode = z.enum(GEO_TRAVEL_MODE_VALUES);
 export type GeoTravelMode = z.infer<typeof GeoTravelMode>;
 
+/**
+ * A single querystring coordinate, wire-encoded as `"lat,lng"` (e.g.
+ * `"48.8584,2.2945"`). GET params are always strings, so origin/destination
+ * arrive flat and are parsed + range-validated here into a {@link Coordinate}.
+ */
+export const CoordinateParam = z.string().transform((value, ctx) => {
+  const parts = value.split(',');
+  const lat = Number(parts[0]);
+  const lng = Number(parts[1]);
+  if (parts.length !== 2 || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    ctx.addIssue({ code: 'custom', message: 'expected "lat,lng"' });
+    return z.NEVER;
+  }
+  const parsed = Coordinate.safeParse({ lat, lng });
+  if (!parsed.success) {
+    ctx.addIssue({ code: 'custom', message: 'lat/lng out of range' });
+    return z.NEVER;
+  }
+  return parsed.data;
+});
+export type CoordinateParam = z.infer<typeof CoordinateParam>;
+
 export const GeoRouteQuery = z.object({
-  origin: Coordinate,
-  destination: Coordinate,
+  /** Origin coordinate, wire-encoded as `"lat,lng"`. */
+  origin: CoordinateParam,
+  /** Destination coordinate, wire-encoded as `"lat,lng"`. */
+  destination: CoordinateParam,
   mode: GeoTravelMode,
   /** Google `destination_place_id` when the destination is a known place. */
   destination_place_id: z.string().optional(),
