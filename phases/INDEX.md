@@ -29,7 +29,7 @@ Status legend: ⬜ not started · 🟨 in progress (branch) · ✅ merged.
 
 | ID | Title | Milestone | Depends on | Track | Size | Status |
 |---|---|---|---|---|---|---|
-| P00 | Foundations & contracts freeze | M1 | — | contracts + full-stack scaffold | L | ⬜ |
+| P00 | Foundations & contracts freeze | M1 | — | contracts + full-stack scaffold | L | 🟨 `claude/phase-p00-foundations-qwv2lp` |
 | P01 | Design system & app shell | M1 | P00 | frontend | L | ⬜ |
 | P02 | Auth backend | M2 | P00 | backend | M | ⬜ |
 | P03 | Auth & consent UI | M2 | P01, P02 | frontend | M | ⬜ |
