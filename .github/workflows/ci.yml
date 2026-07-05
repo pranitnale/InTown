@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # (a) Full workspace test gate: boundary guard + scripts tests + every
+  #     package's vitest suite + the Python fixture-contract suite.
+  #     `pnpm -w test` shells into scripts/python-tests.sh, which provisions the
+  #     repo-root .venv itself, so we only need a Python interpreter on PATH.
+  test:
+    name: test (pnpm -w test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm -w test
+
+  # (b) Frontend: lint, typecheck, deployable build, and design-token drift.
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm --filter @intown/frontend run lint
+      - run: pnpm --filter @intown/frontend run typecheck
+      - run: pnpm --filter @intown/frontend run build
+      # ui-tokens are generated from contracts/design-tokens.json — regenerate
+      # and fail if the committed output drifts from source.
+      - run: pnpm --filter @intown/frontend run generate:tokens
+      - run: git diff --exit-code -- frontend/ui-tokens
+
+  # (c) Backend API: lint, typecheck, build.
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm --filter @intown/api run lint
+      - run: pnpm --filter @intown/api run typecheck
+      - run: pnpm --filter @intown/api run build
+
+  # (d) Python contract mirror: regenerate pydantic models + JSON Schemas from
+  #     the frozen zod contract and fail on drift. The generator binds to
+  #     .venv/bin/datamodel-codegen (repo-root venv), so we provision the venv
+  #     exactly as scripts/python-tests.sh does before invoking it.
+  python-mirror:
+    name: python-mirror
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pnpm -w install --frozen-lockfile
+      - name: Provision repo-root .venv (matches scripts/python-tests.sh)
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --quiet --upgrade pip
+          .venv/bin/python -m pip install --quiet -r contracts/python/requirements.txt
+      - run: pnpm --filter @intown/contracts run generate:python
+      - run: git diff --exit-code -- contracts/python
+
+  # (e) Migration chain applies cleanly from empty and is idempotent: a second
+  #     run must apply 0 migrations.
+  migrations:
+    name: migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: intown
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d intown"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/intown
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm -w install --frozen-lockfile
+      - name: Apply migrations from empty
+        run: pnpm --filter @intown/api run migrate
+      - name: Re-run migrations — must apply 0
+        run: |
+          out="$(pnpm --filter @intown/api run migrate 2>&1)"
+          echo "$out"
+          echo "$out" | grep -q "done — 0 applied" \
+            || { echo "::error::second migrate run applied migrations (expected 0)"; exit 1; }
+
+  # (f) Dev compose stack validates and boots. No Node needed — just Docker.
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose config
+        run: docker compose -f backend/infra/docker-compose.dev.yml config -q
+      - name: Boot core services
+        run: docker compose -f backend/infra/docker-compose.dev.yml up -d postgres minio realtime
+      - name: Wait for all three services to be ready
+        run: |
+          COMPOSE="docker compose -f backend/infra/docker-compose.dev.yml"
+          # postgres publishes a healthcheck (pg_isready) — poll docker health.
+          # minio + realtime are probed from the host over their published ports
+          # (the runner has curl and can reach 9000/4000; this does not depend on
+          # in-container tooling).
+          ready() {
+            local pg
+            pg="$($COMPOSE ps -q postgres | xargs -r docker inspect -f '{{.State.Health.Status}}')"
+            [ "$pg" = "healthy" ] || return 1
+            curl -sf -o /dev/null "http://localhost:9000/minio/health/live" || return 1
+            curl -s -o /dev/null "http://localhost:4000/" || return 1
+            return 0
+          }
+          for i in $(seq 1 60); do
+            if ready; then echo "all three services ready after $((i*5))s"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::services did not become ready within timeout"
+          $COMPOSE ps
+          $COMPOSE logs
+          exit 1
+      - name: Tear down
+        if: always()
+        run: docker compose -f backend/infra/docker-compose.dev.yml down -v

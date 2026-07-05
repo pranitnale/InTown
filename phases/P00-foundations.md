@@ -64,14 +64,16 @@ cd backend && docker compose -f infra/docker-compose.dev.yml up -d && npm run mi
 ```
 
 ## Resume checklist
-- [ ] Confirm `Frontend_Website/` deleted; create `frontend/`, `backend/`, `contracts/` trees + root workspace.
-- [ ] Frontend Vite+React+TS PWA skeleton boots + builds; `vercel.json`.
-- [ ] Backend Fastify skeleton + Python worker skeletons + `db/migrations` chain + `infra/docker-compose.dev.yml`.
-- [ ] `contracts/types/` all §10 entities (TS + zod).
-- [ ] `contracts/api/` all §11 routes + SSE shapes.
-- [ ] `contracts/events/` §9.1 catalog; unified `category` enum (§5.4).
-- [ ] `contracts/design-tokens.json` + role→floor declarations.
-- [ ] `contracts/fixtures/` all six families.
-- [ ] `contracts/python/` generated mirror.
-- [ ] CI: lint/typecheck/build both apps; boundary guard; fixture-contract test; contrast test; migration-chain check.
-- [ ] README path→phase map; run all Verification commands green.
+- [x] Confirm `Frontend_Website/` deleted; create `frontend/`, `backend/`, `contracts/` trees + root workspace.
+- [x] Frontend Vite+React+TS PWA skeleton boots + builds; `vercel.json`.
+- [x] Backend Fastify skeleton + Python worker skeletons + `db/migrations` chain + `infra/docker-compose.dev.yml`.
+- [x] `contracts/types/` all §10 entities (TS + zod).
+- [x] `contracts/api/` all §11 routes + SSE shapes.
+- [x] `contracts/events/` §9.1 catalog; unified `category` enum (§5.4).
+- [x] `contracts/design-tokens.json` + role→floor declarations.
+- [x] `contracts/fixtures/` all six families.
+- [x] `contracts/python/` generated mirror.
+- [x] CI: lint/typecheck/build both apps; boundary guard; fixture-contract test; contrast test; migration-chain check.
+      (`.github/workflows/ci.yml`, 6 jobs. Boundary-guard, fixture-contract, contrast, and token/python-mirror drift are verified green locally via `pnpm -w test` + build; the **migration-chain** and **compose-boot** jobs are **CI-verified only** — no Docker daemon in the build env, so they cannot run locally.)
+- [x] README path→phase map; run all Verification commands green.
+      (`pnpm -w test`, `frontend build`, `@intown/api build`, and `docker compose … config -q` all green locally. The `docker compose up` + `npm run migrate` + `npm run test` steps require the dev stack / live `DATABASE_URL` and are **CI-verified only** — no local daemon.)

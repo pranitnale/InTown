@@ -117,8 +117,16 @@ Execution is organized into fine-grained phases in `phases/INDEX.md`
 
 ## Verification commands
 
-- Frontend: `cd frontend && npm install && npm run build && npm run lint && npm run typecheck`
-- Backend: backend verification commands are defined per phase file; record the
-  canonical ones here once P00 lands.
-- There is no repo-wide test runner configured yet; if an implementer adds one,
-  record the command here.
+- Repo-wide (canonical gate): `pnpm -w install && pnpm -w test` — runs the
+  boundary guard, the `scripts/` node:test suite, every package's vitest suite,
+  and the Python fixture-contract suite (`scripts/python-tests.sh`, which
+  provisions the repo-root `.venv`).
+- Frontend: `pnpm --filter @intown/frontend run build && pnpm --filter @intown/frontend run lint && pnpm --filter @intown/frontend run typecheck`
+  (token drift: `pnpm --filter @intown/frontend run generate:tokens && git diff --exit-code -- frontend/ui-tokens`).
+- Backend: `pnpm --filter @intown/api run lint && pnpm --filter @intown/api run typecheck && pnpm --filter @intown/api run build`.
+  Migrations/tests need the dev stack for a live `DATABASE_URL`:
+  `docker compose -f backend/infra/docker-compose.dev.yml up -d`, then
+  `pnpm --filter @intown/api run migrate` and `pnpm --filter @intown/api run test`
+  (or rely on CI, which runs both against a Postgres service).
+- Compose validity (no daemon needed): `docker compose -f backend/infra/docker-compose.dev.yml config -q`.
+- Full CI mirror of the above: `.github/workflows/ci.yml`.
