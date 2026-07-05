@@ -1,0 +1,42 @@
+{
+  "name": "@intown/frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate:tokens": "tsx scripts/generate-tokens.mts",
+    "generate:icons": "node scripts/generate-icons.mjs"
+  },
+  "dependencies": {
+    "@intown/contracts": "workspace:*",
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "zustand": "^5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@tailwindcss/vite": "^4",
+    "@types/node": "catalog:",
+    "@types/react": "^18.3",
+    "@types/react-dom": "^18.3",
+    "@vitejs/plugin-react": "^4",
+    "apca-w3": "^0.1.9",
+    "eslint": "^9",
+    "eslint-plugin-react-hooks": "^5",
+    "eslint-plugin-react-refresh": "^0.4",
+    "globals": "^15",
+    "tailwindcss": "^4",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "^8",
+    "vite": "^6",
+    "vite-plugin-pwa": "^0.21",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+/* Generated design-token CSS custom properties (light :root + dark overrides). */
+@import '../ui-tokens/tokens.css';
+
+/*
+ * Map the runtime token custom properties into Tailwind's theme so utilities
+ * (bg-bg, text-text, border-border, …) resolve to the live var() and therefore
+ * follow the light/dark cascade defined in ui-tokens/tokens.css. `inline` makes
+ * the generated utilities reference the var() rather than baking a static value.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-on-primary-pressed: var(--on-primary-pressed);
+  --color-link: var(--link);
+  --color-jade: var(--jade);
+  --color-on-jade: var(--on-jade);
+  --color-jade-chip-bg: var(--jade-chip-bg);
+  --color-jade-chip-text: var(--jade-chip-text);
+  --color-terracotta: var(--terracotta);
+  --color-on-terracotta: var(--on-terracotta);
+  --color-terracotta-chip-bg: var(--terracotta-chip-bg);
+  --color-terracotta-chip-text: var(--terracotta-chip-text);
+  --color-warning: var(--warning);
+  --color-on-warning: var(--on-warning);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-success: var(--success);
+  --color-on-success: var(--on-success);
+  --color-selected-ring: var(--selected-ring);
+  --color-focus: var(--focus);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.app-wordmark {
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  color: var(--primary);
+}
+
+.app-main {
+  flex: 1 1 auto;
+}
