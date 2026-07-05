@@ -4,5 +4,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["types", "api", "events", "scripts"]
+  "include": ["types", "api", "events", "scripts", "tests"]
 }

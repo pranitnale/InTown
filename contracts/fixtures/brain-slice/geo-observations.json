@@ -1,0 +1,123 @@
+[
+  {
+    "id": "9e000000-0000-4000-8000-000000000001",
+    "poi_id": "f0000000-0000-4000-8000-000000000001",
+    "source_kind": "osm",
+    "lat": 41.14663,
+    "lng": -8.61479,
+    "accuracy_m": 5,
+    "observed_at": "2026-05-14T08:12:00Z",
+    "expires_at": null,
+    "confidence": 0.92
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000002",
+    "poi_id": "f0000000-0000-4000-8000-000000000001",
+    "source_kind": "wikidata",
+    "lat": 41.14661,
+    "lng": -8.61476,
+    "accuracy_m": 12,
+    "observed_at": "2026-05-14T08:12:03Z",
+    "expires_at": null,
+    "confidence": 0.85
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000003",
+    "poi_id": "f0000000-0000-4000-8000-000000000002",
+    "source_kind": "osm",
+    "lat": 41.14573,
+    "lng": -8.61436,
+    "accuracy_m": 4,
+    "observed_at": "2026-05-14T08:13:00Z",
+    "expires_at": null,
+    "confidence": 0.93
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000004",
+    "poi_id": "f0000000-0000-4000-8000-000000000002",
+    "source_kind": "commons_photo",
+    "lat": 41.1458,
+    "lng": -8.6144,
+    "accuracy_m": 25,
+    "observed_at": "2026-05-15T11:40:00Z",
+    "expires_at": null,
+    "confidence": 0.7
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000005",
+    "poi_id": "f0000000-0000-4000-8000-000000000003",
+    "source_kind": "osm",
+    "lat": 41.13994,
+    "lng": -8.60936,
+    "accuracy_m": 3,
+    "observed_at": "2026-05-14T08:14:00Z",
+    "expires_at": null,
+    "confidence": 0.96
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000006",
+    "poi_id": "f0000000-0000-4000-8000-000000000007",
+    "source_kind": "first_traveler_gps",
+    "lat": 41.14786,
+    "lng": -8.62203,
+    "accuracy_m": 18,
+    "observed_at": "2026-06-02T14:30:00Z",
+    "expires_at": null,
+    "confidence": 0.8
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000007",
+    "poi_id": "f0000000-0000-4000-8000-000000000008",
+    "source_kind": "google_fallback",
+    "lat": 41.14759,
+    "lng": -8.60694,
+    "accuracy_m": 30,
+    "observed_at": "2026-06-04T09:15:00Z",
+    "expires_at": "2026-07-04T09:15:00Z",
+    "confidence": 0.5
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000008",
+    "poi_id": "f0000000-0000-4000-8000-000000000009",
+    "source_kind": "flickr_photo",
+    "lat": 41.14079,
+    "lng": -8.61181,
+    "accuracy_m": 40,
+    "observed_at": "2026-05-16T13:05:00Z",
+    "expires_at": null,
+    "confidence": 0.6
+  },
+  {
+    "id": "9e000000-0000-4000-8000-000000000009",
+    "poi_id": "f0000000-0000-4000-8000-000000000009",
+    "source_kind": "source_maplink",
+    "lat": 41.14081,
+    "lng": -8.61179,
+    "accuracy_m": 15,
+    "observed_at": "2026-05-16T13:06:00Z",
+    "expires_at": null,
+    "confidence": 0.72
+  },
+  {
+    "id": "9e000000-0000-4000-8000-00000000000a",
+    "poi_id": "f0000000-0000-4000-8000-000000000005",
+    "source_kind": "osm",
+    "lat": 41.14136,
+    "lng": -8.61553,
+    "accuracy_m": 6,
+    "observed_at": "2026-05-14T08:16:00Z",
+    "expires_at": null,
+    "confidence": 0.9
+  },
+  {
+    "id": "9e000000-0000-4000-8000-00000000000b",
+    "poi_id": "f0000000-0000-4000-8000-000000000008",
+    "source_kind": "visual_recognition",
+    "lat": 41.1476,
+    "lng": -8.60691,
+    "accuracy_m": 55,
+    "observed_at": "2026-06-05T16:40:00Z",
+    "expires_at": null,
+    "confidence": 0.45
+  }
+]

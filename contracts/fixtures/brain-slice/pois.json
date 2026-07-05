@@ -1,0 +1,256 @@
+[
+  {
+    "id": "f0000000-0000-4000-8000-000000000001",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Livraria Lello",
+    "aliases": ["Lello Bookstore", "Livraria Chardron"],
+    "category": "SHOPPING",
+    "coord": { "lat": 41.14663, "lng": -8.61479 },
+    "coord_confidence": 0.97,
+    "coord_verified_by": "cross_referenced",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/40982374",
+      "wikidata_id": "Q1160538",
+      "google_place_id": null
+    },
+    "source_refs": [
+      {
+        "source_kind": "osm",
+        "external_id": "way/40982374",
+        "observed_at": "2026-05-14T08:12:00Z"
+      },
+      {
+        "source_kind": "wikidata",
+        "source_url": "https://www.wikidata.org/wiki/Q1160538",
+        "external_id": "Q1160538",
+        "observed_at": "2026-05-14T08:12:03Z"
+      }
+    ],
+    "prominence": 0.94,
+    "indoor_outdoor": "indoor",
+    "accessibility": { "wheelchair": false, "stairs": true, "stroller": false },
+    "created_at": "2026-05-14T08:12:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000002",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Torre dos Clérigos",
+    "aliases": ["Clérigos Tower"],
+    "category": "VIEWPOINT",
+    "coord": { "lat": 41.14573, "lng": -8.61436 },
+    "coord_confidence": 0.95,
+    "coord_verified_by": "cross_referenced",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/25783921",
+      "wikidata_id": "Q1148991",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/25783921", "observed_at": "2026-05-14T08:13:00Z" },
+      { "source_kind": "wikidata", "external_id": "Q1148991", "observed_at": "2026-05-14T08:13:01Z" },
+      { "source_kind": "official_site", "source_url": "https://www.torredosclerigos.pt", "observed_at": "2026-05-14T08:13:05Z" }
+    ],
+    "prominence": 0.9,
+    "indoor_outdoor": "mixed",
+    "accessibility": { "wheelchair": false, "stairs": true, "stroller": false },
+    "created_at": "2026-05-14T08:13:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000003",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Ponte Luís I",
+    "aliases": ["Dom Luís I Bridge", "Ponte Dom Luís I"],
+    "category": "SIGHT",
+    "coord": { "lat": 41.13994, "lng": -8.60936 },
+    "coord_confidence": 0.99,
+    "coord_verified_by": "open_data",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/4571002",
+      "wikidata_id": "Q611230",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/4571002", "observed_at": "2026-05-14T08:14:00Z" }
+    ],
+    "prominence": 0.88,
+    "indoor_outdoor": "outdoor",
+    "accessibility": { "wheelchair": true, "stairs": false, "stroller": true },
+    "created_at": "2026-05-14T08:14:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000004",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Sé do Porto",
+    "aliases": ["Porto Cathedral", "Sé Catedral do Porto"],
+    "category": "SIGHT",
+    "coord": { "lat": 41.14263, "lng": -8.61101 },
+    "coord_confidence": 0.96,
+    "coord_verified_by": "cross_referenced",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/29347105",
+      "wikidata_id": "Q756033",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/29347105", "observed_at": "2026-05-14T08:15:00Z" },
+      { "source_kind": "wikidata", "external_id": "Q756033", "observed_at": "2026-05-14T08:15:01Z" }
+    ],
+    "prominence": 0.82,
+    "indoor_outdoor": "mixed",
+    "accessibility": { "wheelchair": true, "stairs": true, "stroller": true },
+    "created_at": "2026-05-14T08:15:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000005",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Palácio da Bolsa",
+    "aliases": ["Stock Exchange Palace"],
+    "category": "MUSEUM",
+    "coord": { "lat": 41.14136, "lng": -8.61553 },
+    "coord_confidence": 0.94,
+    "coord_verified_by": "open_data",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/48120933",
+      "wikidata_id": "Q1348886",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/48120933", "observed_at": "2026-05-14T08:16:00Z" }
+    ],
+    "prominence": 0.79,
+    "indoor_outdoor": "indoor",
+    "accessibility": { "wheelchair": true, "stairs": false, "stroller": true },
+    "created_at": "2026-05-14T08:16:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000006",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Museu de Serralves",
+    "aliases": ["Serralves Museum of Contemporary Art", "Fundação de Serralves"],
+    "category": "MUSEUM",
+    "coord": { "lat": 41.15896, "lng": -8.65949 },
+    "coord_confidence": 0.93,
+    "coord_verified_by": "cross_referenced",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/61003471",
+      "wikidata_id": "Q1145842",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/61003471", "observed_at": "2026-05-14T08:17:00Z" },
+      { "source_kind": "official_site", "source_url": "https://www.serralves.pt", "observed_at": "2026-05-14T08:17:04Z" }
+    ],
+    "prominence": 0.71,
+    "indoor_outdoor": "mixed",
+    "accessibility": { "wheelchair": true, "stairs": false, "stroller": true },
+    "created_at": "2026-05-14T08:17:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000007",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Jardins do Palácio de Cristal",
+    "aliases": ["Crystal Palace Gardens"],
+    "category": "PARK_NATURE",
+    "coord": { "lat": 41.14786, "lng": -8.62203 },
+    "coord_confidence": 0.86,
+    "coord_verified_by": "first_traveler_gps",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/38471209",
+      "wikidata_id": null,
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/38471209", "observed_at": "2026-05-14T08:18:00Z" }
+    ],
+    "prominence": 0.63,
+    "indoor_outdoor": "outdoor",
+    "accessibility": { "wheelchair": true, "stairs": true, "stroller": true },
+    "created_at": "2026-05-14T08:18:00Z",
+    "updated_at": "2026-06-02T14:30:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000008",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Café Majestic",
+    "aliases": ["Majestic Café"],
+    "category": "CAFE",
+    "coord": { "lat": 41.14759, "lng": -8.60694 },
+    "coord_confidence": 0.52,
+    "coord_verified_by": "open_data",
+    "coord_resolution": "approximate",
+    "external_ids": {
+      "osm_id": null,
+      "wikidata_id": "Q10262939",
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "wikidata", "external_id": "Q10262939", "observed_at": "2026-05-14T08:19:00Z" }
+    ],
+    "prominence": 0.58,
+    "indoor_outdoor": "indoor",
+    "accessibility": { "wheelchair": false, "stairs": true, "stroller": null },
+    "created_at": "2026-05-14T08:19:00Z",
+    "updated_at": "2026-05-14T08:19:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-000000000009",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Cais da Ribeira",
+    "aliases": ["Ribeira Waterfront"],
+    "category": "VIEWPOINT",
+    "coord": { "lat": 41.14079, "lng": -8.61181 },
+    "coord_confidence": 0.9,
+    "coord_verified_by": "open_data",
+    "coord_resolution": "verified",
+    "external_ids": {
+      "osm_id": "way/15920033",
+      "wikidata_id": null,
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "osm", "external_id": "way/15920033", "observed_at": "2026-05-14T08:20:00Z" }
+    ],
+    "prominence": 0.77,
+    "indoor_outdoor": "outdoor",
+    "accessibility": { "wheelchair": true, "stairs": true, "stroller": true },
+    "created_at": "2026-05-14T08:20:00Z",
+    "updated_at": "2026-06-01T09:00:00Z"
+  },
+  {
+    "id": "f0000000-0000-4000-8000-00000000000a",
+    "city_id": "c0a70000-0000-4000-8000-000000000001",
+    "name": "Mercado do Bolhão",
+    "aliases": ["Bolhão Market"],
+    "category": "SHOPPING",
+    "coord": null,
+    "coord_confidence": null,
+    "coord_verified_by": null,
+    "coord_resolution": "unverified",
+    "external_ids": {
+      "osm_id": null,
+      "wikidata_id": null,
+      "google_place_id": null
+    },
+    "source_refs": [
+      { "source_kind": "llm_research", "observed_at": "2026-05-14T08:21:00Z" }
+    ],
+    "prominence": 0.66,
+    "indoor_outdoor": "mixed",
+    "accessibility": { "wheelchair": null, "stairs": null, "stroller": null },
+    "created_at": "2026-05-14T08:21:00Z",
+    "updated_at": "2026-05-14T08:21:00Z"
+  }
+]

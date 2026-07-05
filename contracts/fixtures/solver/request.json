@@ -1,0 +1,97 @@
+{
+  "trip_city_id": "cc000000-0000-4000-8000-000000000001",
+  "days": [
+    {
+      "day_index": 0,
+      "start_time": "2026-06-13T09:00:00Z",
+      "start": {
+        "node": "start:0",
+        "coord": { "lat": 41.1463, "lng": -8.6115 },
+        "poi_id": null,
+        "label": "Hotel (Ribeira)"
+      },
+      "end_deadline": null,
+      "end_anchor": {
+        "node": "end:0",
+        "coord": { "lat": 41.1463, "lng": -8.6115 },
+        "poi_id": null,
+        "label": "Hotel (Ribeira)"
+      },
+      "walking_budget_m": 8000
+    },
+    {
+      "day_index": 1,
+      "start_time": "2026-06-14T09:00:00Z",
+      "start": {
+        "node": "start:1",
+        "coord": { "lat": 41.1463, "lng": -8.6115 },
+        "poi_id": null,
+        "label": "Hotel (Ribeira)"
+      },
+      "end_deadline": "2026-06-14T18:00:00Z",
+      "end_anchor": null,
+      "walking_budget_m": null
+    }
+  ],
+  "candidates": [
+    {
+      "poi_id": "f0000000-0000-4000-8000-000000000003",
+      "node": "f0000000-0000-4000-8000-000000000003",
+      "coord": { "lat": 41.13994, "lng": -8.60936 },
+      "category": "SIGHT",
+      "est_duration_min": 45,
+      "priority": 5,
+      "must_do": true,
+      "indoor_outdoor": "outdoor",
+      "windows": []
+    },
+    {
+      "poi_id": "f0000000-0000-4000-8000-000000000004",
+      "node": "f0000000-0000-4000-8000-000000000004",
+      "coord": { "lat": 41.14263, "lng": -8.61101 },
+      "category": "SIGHT",
+      "est_duration_min": 45,
+      "priority": 3,
+      "must_do": false,
+      "indoor_outdoor": "mixed",
+      "windows": [
+        { "day_index": 0, "opens": "2026-06-13T09:00:00Z", "closes": "2026-06-13T18:30:00Z" }
+      ]
+    },
+    {
+      "poi_id": "f0000000-0000-4000-8000-000000000001",
+      "node": "f0000000-0000-4000-8000-000000000001",
+      "coord": { "lat": 41.14663, "lng": -8.61479 },
+      "category": "SHOPPING",
+      "est_duration_min": 45,
+      "priority": 4,
+      "must_do": true,
+      "indoor_outdoor": "indoor",
+      "windows": [
+        { "day_index": 1, "opens": "2026-06-14T09:30:00Z", "closes": "2026-06-14T19:00:00Z" }
+      ]
+    },
+    {
+      "poi_id": "f0000000-0000-4000-8000-000000000006",
+      "node": "f0000000-0000-4000-8000-000000000006",
+      "coord": { "lat": 41.15896, "lng": -8.65949 },
+      "category": "MUSEUM",
+      "est_duration_min": 120,
+      "priority": 2,
+      "must_do": false,
+      "indoor_outdoor": "mixed",
+      "windows": [
+        { "day_index": 1, "opens": "2026-06-14T10:00:00Z", "closes": "2026-06-14T17:00:00Z" }
+      ]
+    }
+  ],
+  "travel_matrix": [
+    { "from": "start:0", "to": "f0000000-0000-4000-8000-000000000003", "mode": "walk", "seconds": 240, "meters": 320 },
+    { "from": "f0000000-0000-4000-8000-000000000003", "to": "f0000000-0000-4000-8000-000000000004", "mode": "walk", "seconds": 360, "meters": 450 },
+    { "from": "f0000000-0000-4000-8000-000000000004", "to": "end:0", "mode": "walk", "seconds": 300, "meters": 380 },
+    { "from": "start:1", "to": "f0000000-0000-4000-8000-000000000001", "mode": "walk", "seconds": 600, "meters": 780 },
+    { "from": "f0000000-0000-4000-8000-000000000001", "to": "f0000000-0000-4000-8000-000000000006", "mode": "transit", "seconds": 1320, "meters": 4600 }
+  ],
+  "default_mode": "walk",
+  "time_budget_ms": 5000
+}

@@ -1,0 +1,68 @@
+{
+  "trip_city_id": "cc000000-0000-4000-8000-000000000001",
+  "status": "optimal",
+  "days": [
+    {
+      "day_index": 0,
+      "stops": [
+        {
+          "poi_id": "f0000000-0000-4000-8000-000000000003",
+          "stop_kind": "poi",
+          "day_index": 0,
+          "ord": 0,
+          "arrive": "2026-06-13T09:04:00Z",
+          "depart": "2026-06-13T09:49:00Z",
+          "travel_from_prev": null
+        },
+        {
+          "poi_id": "f0000000-0000-4000-8000-000000000004",
+          "stop_kind": "poi",
+          "day_index": 0,
+          "ord": 1,
+          "arrive": "2026-06-13T09:55:00Z",
+          "depart": "2026-06-13T10:40:00Z",
+          "travel_from_prev": { "mode": "walk", "seconds": 360, "meters": 450 }
+        },
+        {
+          "poi_id": null,
+          "stop_kind": "meal",
+          "day_index": 0,
+          "ord": 2,
+          "arrive": "2026-06-13T13:00:00Z",
+          "depart": "2026-06-13T14:00:00Z",
+          "travel_from_prev": null
+        }
+      ],
+      "walking_m": 770,
+      "ends_at": "2026-06-13T14:00:00Z"
+    },
+    {
+      "day_index": 1,
+      "stops": [
+        {
+          "poi_id": "f0000000-0000-4000-8000-000000000001",
+          "stop_kind": "poi",
+          "day_index": 1,
+          "ord": 0,
+          "arrive": "2026-06-14T09:30:00Z",
+          "depart": "2026-06-14T10:15:00Z",
+          "travel_from_prev": null
+        },
+        {
+          "poi_id": "f0000000-0000-4000-8000-000000000006",
+          "stop_kind": "poi",
+          "day_index": 1,
+          "ord": 1,
+          "arrive": "2026-06-14T10:37:00Z",
+          "depart": "2026-06-14T12:37:00Z",
+          "travel_from_prev": { "mode": "transit", "seconds": 1320, "meters": 4600 }
+        }
+      ],
+      "walking_m": 780,
+      "ends_at": "2026-06-14T12:37:00Z"
+    }
+  ],
+  "unscheduled_poi_ids": [],
+  "objective_value": 14.0,
+  "solve_ms": 842
+}

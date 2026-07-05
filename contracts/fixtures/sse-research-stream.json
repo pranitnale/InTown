@@ -1,0 +1,21 @@
+[
+  { "type": "stage_started", "stage": "brain_check", "label": "Checking Porto knowledge base" },
+  { "type": "stage_log", "stage": "brain_check", "message": "Porto Brain is warm (last refreshed 2026-06-01)" },
+  { "type": "stage_completed", "stage": "brain_check", "summary": "Brain warm — skipping deep crawl" },
+  { "type": "stage_started", "stage": "intake", "label": "Reading your group's tastes" },
+  { "type": "stage_log", "stage": "intake", "message": "Merging 3 traveler profiles into a group profile" },
+  { "type": "stage_completed", "stage": "intake", "summary": "Weighted for architecture, coffee and museums" },
+  { "type": "stage_started", "stage": "candidates", "label": "Assembling candidate places" },
+  { "type": "place_found", "poi_id": "f0000000-0000-4000-8000-000000000001", "name": "Livraria Lello", "category": "SHOPPING" },
+  { "type": "place_found", "poi_id": "f0000000-0000-4000-8000-000000000002", "name": "Torre dos Clérigos", "category": "VIEWPOINT" },
+  { "type": "place_found", "poi_id": "f0000000-0000-4000-8000-000000000006", "name": "Museu de Serralves", "category": "MUSEUM" },
+  { "type": "candidate_scored", "poi_id": "f0000000-0000-4000-8000-000000000001", "score": 0.92, "tier": "must_see", "justification": "Iconic architecture — matches Mara's top interest" },
+  { "type": "candidate_scored", "poi_id": "f0000000-0000-4000-8000-000000000002", "score": 0.81, "tier": "want" },
+  { "type": "candidate_scored", "poi_id": "f0000000-0000-4000-8000-000000000006", "score": 0.64, "tier": "maybe", "justification": "Out of the centre; strong for Jonas' museum interest" },
+  { "type": "stage_completed", "stage": "candidates", "summary": "24 candidates scored" },
+  { "type": "stage_started", "stage": "ground", "label": "Grounding coordinates" },
+  { "type": "stage_log", "stage": "ground", "message": "Cross-referencing OSM and Wikidata for pin placement" },
+  { "type": "error", "code": "coord_low_confidence", "message": "Mercado do Bolhão could not be grounded — shown as approximate", "fatal": false },
+  { "type": "stage_completed", "stage": "ground", "summary": "23 of 24 places grounded" },
+  { "type": "research_completed", "trip_city_id": "cc000000-0000-4000-8000-000000000001", "candidate_count": 24, "longlist_ready": true }
+]

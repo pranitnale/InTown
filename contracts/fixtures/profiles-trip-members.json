@@ -1,0 +1,185 @@
+{
+  "users": [
+    {
+      "id": "aa000000-0000-4000-8000-000000000001",
+      "email": "mara@example.com",
+      "display_name": "Mara",
+      "handle": "mara_t",
+      "locale": "en-GB",
+      "created_at": "2026-01-10T08:00:00Z",
+      "updated_at": "2026-06-01T08:00:00Z"
+    },
+    {
+      "id": "aa000000-0000-4000-8000-000000000002",
+      "email": "jonas@example.com",
+      "display_name": "Jonas",
+      "handle": "jonas",
+      "locale": "de-DE",
+      "created_at": "2026-01-11T08:00:00Z",
+      "updated_at": "2026-06-01T08:00:00Z"
+    },
+    {
+      "id": "aa000000-0000-4000-8000-000000000003",
+      "email": null,
+      "display_name": "Guest",
+      "handle": null,
+      "locale": null,
+      "created_at": "2026-06-09T08:00:00Z",
+      "updated_at": "2026-06-09T08:00:00Z"
+    }
+  ],
+  "traveler_profiles": [
+    {
+      "id": "17000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000001",
+      "age_band": "26-44",
+      "mobility": "full",
+      "eu_residency": true,
+      "student": false,
+      "languages": ["en", "pt"],
+      "currency": "EUR",
+      "created_at": "2026-01-10T08:05:00Z",
+      "updated_at": "2026-05-20T09:00:00Z"
+    },
+    {
+      "id": "17000000-0000-4000-8000-000000000002",
+      "user_id": "aa000000-0000-4000-8000-000000000002",
+      "age_band": "26-44",
+      "mobility": "limited",
+      "eu_residency": true,
+      "student": false,
+      "languages": ["de", "en"],
+      "currency": "EUR",
+      "created_at": "2026-01-11T08:05:00Z",
+      "updated_at": "2026-05-20T09:05:00Z"
+    },
+    {
+      "id": "17000000-0000-4000-8000-000000000003",
+      "user_id": "aa000000-0000-4000-8000-000000000003",
+      "age_band": "18-25",
+      "mobility": "full",
+      "eu_residency": false,
+      "student": true,
+      "languages": ["en"],
+      "currency": "USD",
+      "created_at": "2026-06-09T08:05:00Z",
+      "updated_at": "2026-06-09T08:05:00Z"
+    }
+  ],
+  "taste_profiles": [
+    {
+      "id": "27000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000001",
+      "version": 2,
+      "interests": ["architecture", "coffee", "viewpoints", "history"],
+      "anti_preferences": ["crowded_nightlife"],
+      "hard_exclusions": ["casinos"],
+      "dietary": ["vegetarian"],
+      "budget_tier": "moderate",
+      "pace": "moderate",
+      "created_at": "2026-05-20T09:00:00Z"
+    },
+    {
+      "id": "27000000-0000-4000-8000-000000000002",
+      "user_id": "aa000000-0000-4000-8000-000000000002",
+      "version": 1,
+      "interests": ["museums", "food", "riverside_walks"],
+      "anti_preferences": ["long_hikes"],
+      "hard_exclusions": [],
+      "dietary": [],
+      "budget_tier": "comfort",
+      "pace": "relaxed",
+      "created_at": "2026-05-20T09:05:00Z"
+    },
+    {
+      "id": "27000000-0000-4000-8000-000000000003",
+      "user_id": "aa000000-0000-4000-8000-000000000003",
+      "version": 1,
+      "interests": ["nightlife", "street_art", "cheap_eats"],
+      "anti_preferences": [],
+      "hard_exclusions": [],
+      "dietary": ["halal"],
+      "budget_tier": "budget",
+      "pace": "packed",
+      "created_at": "2026-06-09T08:05:00Z"
+    }
+  ],
+  "consents": [
+    {
+      "id": "37000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000001",
+      "consent_type": "personalization_learning",
+      "granted": true,
+      "policy_version": "2026-05-01",
+      "granted_at": "2026-05-20T09:00:00Z",
+      "revoked_at": null
+    },
+    {
+      "id": "37000000-0000-4000-8000-000000000002",
+      "user_id": "aa000000-0000-4000-8000-000000000001",
+      "consent_type": "location_derived_signals",
+      "granted": true,
+      "policy_version": "2026-05-01",
+      "granted_at": "2026-05-20T09:00:00Z",
+      "revoked_at": null
+    },
+    {
+      "id": "37000000-0000-4000-8000-000000000003",
+      "user_id": "aa000000-0000-4000-8000-000000000002",
+      "consent_type": "personalization_learning",
+      "granted": false,
+      "policy_version": "2026-05-01",
+      "granted_at": "2026-05-20T09:05:00Z",
+      "revoked_at": "2026-06-01T12:00:00Z"
+    },
+    {
+      "id": "37000000-0000-4000-8000-000000000004",
+      "user_id": "aa000000-0000-4000-8000-000000000003",
+      "consent_type": "marketing",
+      "granted": false,
+      "policy_version": "2026-05-01",
+      "granted_at": "2026-06-09T08:05:00Z",
+      "revoked_at": null
+    }
+  ],
+  "trip": {
+    "id": "bb000000-0000-4000-8000-000000000001",
+    "owner_id": "aa000000-0000-4000-8000-000000000001",
+    "name": "Porto long weekend",
+    "created_at": "2026-06-08T20:00:00Z",
+    "updated_at": "2026-06-12T07:30:00Z"
+  },
+  "members": [
+    {
+      "id": "dd000000-0000-4000-8000-000000000001",
+      "trip_id": "bb000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000001",
+      "role": "owner",
+      "joined_at": "2026-06-08T20:00:00Z"
+    },
+    {
+      "id": "dd000000-0000-4000-8000-000000000002",
+      "trip_id": "bb000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000002",
+      "role": "editor",
+      "joined_at": "2026-06-09T07:30:00Z"
+    },
+    {
+      "id": "dd000000-0000-4000-8000-000000000003",
+      "trip_id": "bb000000-0000-4000-8000-000000000001",
+      "user_id": "aa000000-0000-4000-8000-000000000003",
+      "role": "viewer",
+      "joined_at": "2026-06-09T08:10:00Z"
+    }
+  ],
+  "invite": {
+    "id": "ee000000-0000-4000-8000-000000000001",
+    "trip_id": "bb000000-0000-4000-8000-000000000001",
+    "code": "PORTO-7QF2K9",
+    "role": "editor",
+    "expires_at": "2026-06-20T23:59:59Z",
+    "revoked": false,
+    "created_by": "aa000000-0000-4000-8000-000000000001",
+    "created_at": "2026-06-08T20:05:00Z"
+  }
+}
