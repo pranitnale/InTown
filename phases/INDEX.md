@@ -5,7 +5,7 @@
 ## How to use this in a session
 
 1. Open this INDEX. Pick a phase whose **dependencies are all merged to `main`** and that is **parallel-safe** with any phase currently in flight (see the protocol below).
-2. Open that phase's file. Work **only** from it + `contracts/`. Do not open `FINAL_PRD.md` — everything you need is inlined.
+2. Open that phase's file. Work **only** from it + `contracts/`. Do not open `FINAL_PRD.md` — everything you need is inlined. **P00 is the deliberate exception:** it transcribes §10, §11, §9.1 and §17.2–17.4 from the PRD into `contracts/`, which is exactly why every later phase can work from its phase file + the frozen `contracts/` seam and never needs the PRD.
 3. On your **first commit**, flip this phase's status in the table below to 🟨 with your branch name (one-line edit, merges trivially).
 4. Follow the phase's Resume checklist so an interrupted session can pick up by diffing `git log` on the branch against the checkboxes.
 

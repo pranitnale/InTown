@@ -486,7 +486,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TS + Vite PWA in the top-level **`frontend/`** folder — **built from scratch; the old `Frontend_Website/` is already deleted (phase P00 confirms it is gone; mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
+| Frontend | React 18 + TS 5.x + Vite (current major) PWA in the top-level **`frontend/`** folder (Node ≥22 LTS runtime, pnpm ≥9) — **built from scratch; the old `Frontend_Website/` is already deleted (phase P00 confirms it is gone; mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
 | Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
 | POI ingestion (City Brain build) | **Overpass API** (Overpass QL bulk tag sweep per city bbox — viewpoints/museums/parks/historic, incl. unnamed nodes geocoding can't reach): kumi.systems primary, overpass-api.de fallback; **Geoapify Places API** as the degrade path (same open data, managed); self-hosted Overpass deferred (like Nominatim/Photon). Distinct from geocoding — this is the bulk sweep that seeds each Brain (§5.2) |
@@ -494,10 +494,10 @@ Realtime channels: `trip:{id}` broadcast + presence.
 | Weather | Open-Meteo (free) |
 | Holidays | Nager.Date / OpenHolidays (free) |
 | LLM | Tiered, provider-agnostic (reasoning + fast); **Gemini paid tier for YouTube URL ingestion**; zod-validated I/O |
-| Solver | OR-Tools routing (Python service); CP-SAT offline auditor; JS/WASM greedy+2-opt on device |
+| Solver | OR-Tools ≥9.10 routing (Python 3.12+ service); CP-SAT offline auditor; JS/WASM greedy+2-opt on device |
 | TTS | Piper/Kokoro self-hosted → Google Cloud TTS free-tier fallback |
-| DB/Auth/Storage/Realtime | **Self-hosted on VPS (owner decision #20–21): PostgreSQL + PostGIS · Auth.js (library in the API, not a separate auth server) · object storage on **local disk first (MinIO optional later)** · *only* the self-hosted Supabase **Realtime** container for Broadcast+Presence.** Full Supabase cloud/stack not used; source never forked |
-| Backend | TypeScript API (Fastify) + Python pipeline/solver workers + a **Postgres-backed job queue** (SKIP LOCKED pattern; no Redis initially — decision #27) in the top-level **`backend/`** folder; SSE for progress; **self-hosted on the owner's VPS** (§12.1) |
+| DB/Auth/Storage/Realtime | **Self-hosted on VPS (owner decision #20–21): PostgreSQL 16 + PostGIS 3.5+ · Auth.js (library in the API, not a separate auth server) · object storage on **local disk first (MinIO optional later)** · *only* the self-hosted Supabase **Realtime** container for Broadcast+Presence.** Full Supabase cloud/stack not used; source never forked |
+| Backend | TypeScript API (Fastify 5.x, Node ≥22 LTS) + Python 3.12+ pipeline/solver workers + a **Postgres-backed job queue** (SKIP LOCKED pattern; no Redis initially — decision #27) in the top-level **`backend/`** folder; SSE for progress; **self-hosted on the owner's VPS** (§12.1) |
 | Repo shape | Two dedicated deployable folders — `frontend/` (Vercel) and `backend/` (VPS) — joined only by a shared, frozen root **`contracts/`** seam (types, API/SSE schemas, event catalog, unified category enum, design tokens, fixtures; no build tooling). Neither folder imports the other; CI enforces the boundary (§18.3). Decisions #25, #28 |
 | Push | Web Push (VAPID) — Android + iOS ≥16.4 installed PWA |
 | Ranking [P2] | LightGBM LambdaMART; replay harness in CI |
@@ -730,7 +730,7 @@ The build is decomposed into **phases** (P00–P33, `phases/INDEX.md`): units si
     infra/               docker-compose.dev (Postgres+PostGIS, MinIO, Supabase Realtime, OSRM),
                          osrm/ config, deploy scripts (§12.1)
 
-/  (root)                pnpm-workspace.yaml (globs: contracts, frontend, backend/api) + CI workflows
+/  (root)                pnpm-workspace.yaml (globs: contracts, frontend, backend/api) + GitHub Actions workflows (.github/workflows/)
                          + phases/ (execution plan). No app code at the root. Vercel builds with
                          Root Directory = frontend (pulls contracts as a workspace dep); the VPS
                          builds/ships backend/.
