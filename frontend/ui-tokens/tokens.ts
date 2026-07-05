@@ -31,6 +31,17 @@ export const lightTokens = {
   "focus": "#2563EB",
 } as const;
 
+/**
+ * Dark palette.
+ *
+ * TEXT-ROLE-ONLY: `jade`, `terracotta`, `warning`, `error` are foreground
+ * (text/icon) values here — see the `dark.*-on-bg` role:large pairs in
+ * contracts/design-tokens.json. Their `on-*` companions are not overridden
+ * for dark, so using them as background fills (e.g. `bg-terracotta` with
+ * `text-on-terracotta`) fails contrast. For filled surfaces in dark use the
+ * dedicated fill tokens: `terracotta-fill` (with `on-terracotta`). `error-large`
+ * is the large-text/icon error variant for dark.
+ */
 export const darkTokens = {
   "bg": "#0C0A09",
   "surface": "#1C1917",

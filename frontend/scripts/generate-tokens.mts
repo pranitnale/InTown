@@ -53,19 +53,33 @@ const css =
   '\n' +
   `:root[data-theme='light'] {\n${varBlock(light, '  ')}\n}\n`;
 
-function tsObject(name: string, palette: Record<string, string>): string {
+function tsObject(name: string, palette: Record<string, string>, doc?: string): string {
   const body = Object.entries(palette)
     .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
     .join('\n');
-  return `export const ${name} = {\n${body}\n} as const;\n`;
+  const jsdoc = doc ? `${doc}\n` : '';
+  return `${jsdoc}export const ${name} = {\n${body}\n} as const;\n`;
 }
+
+const DARK_DOC =
+  '/**\n' +
+  ' * Dark palette.\n' +
+  ' *\n' +
+  ' * TEXT-ROLE-ONLY: `jade`, `terracotta`, `warning`, `error` are foreground\n' +
+  ' * (text/icon) values here — see the `dark.*-on-bg` role:large pairs in\n' +
+  ' * contracts/design-tokens.json. Their `on-*` companions are not overridden\n' +
+  " * for dark, so using them as background fills (e.g. `bg-terracotta` with\n" +
+  ' * `text-on-terracotta`) fails contrast. For filled surfaces in dark use the\n' +
+  ' * dedicated fill tokens: `terracotta-fill` (with `on-terracotta`). `error-large`\n' +
+  ' * is the large-text/icon error variant for dark.\n' +
+  ' */';
 
 const ts =
   HEADER_TS +
   '\n' +
   tsObject('lightTokens', light) +
   '\n' +
-  tsObject('darkTokens', dark) +
+  tsObject('darkTokens', dark, DARK_DOC) +
   '\n' +
   'export const tokens = { light: lightTokens, dark: darkTokens } as const;\n' +
   '\n' +

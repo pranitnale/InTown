@@ -20,18 +20,33 @@
   --color-primary-pressed: var(--primary-pressed);
   --color-on-primary-pressed: var(--on-primary-pressed);
   --color-link: var(--link);
+  /*
+   * TEXT-ROLE-ONLY in dark mode: `jade`, `terracotta`, `warning`, `error` are
+   * light/vivid in the dark palette (chosen as foreground on `bg`/`surface`,
+   * see the `dark.*-on-bg` role:large pairs in contracts/design-tokens.json).
+   * Their `on-*` companions are NOT overridden for dark, so a filled utility
+   * like `bg-jade text-on-jade` or `bg-terracotta text-on-terracotta` would keep
+   * the light white foreground and fail contrast (undeclared, untested pair).
+   * For a filled surface in dark use the dedicated fill tokens below.
+   */
   --color-jade: var(--jade);
   --color-on-jade: var(--on-jade);
   --color-jade-chip-bg: var(--jade-chip-bg);
   --color-jade-chip-text: var(--jade-chip-text);
   --color-terracotta: var(--terracotta);
   --color-on-terracotta: var(--on-terracotta);
+  /* Filled-terracotta surface: `bg-terracotta-fill text-on-terracotta` — the
+     tested `dark.on-terracotta-fill` body pair. Undefined in light, so it falls
+     back to the light terracotta fill (`--terracotta`, #C2410C = same hue). */
+  --color-terracotta-fill: var(--terracotta-fill, var(--terracotta));
   --color-terracotta-chip-bg: var(--terracotta-chip-bg);
   --color-terracotta-chip-text: var(--terracotta-chip-text);
   --color-warning: var(--warning);
   --color-on-warning: var(--on-warning);
   --color-error: var(--error);
   --color-on-error: var(--on-error);
+  /* Large-text/icon error variant for dark; falls back to `--error` in light. */
+  --color-error-large: var(--error-large, var(--error));
   --color-success: var(--success);
   --color-on-success: var(--on-success);
   --color-selected-ring: var(--selected-ring);
