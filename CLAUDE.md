@@ -19,13 +19,27 @@ opened on this repo:**
 
 ## Project layout
 
-- `Frontend_Website/` — Vite + React 18 + TypeScript PWA (Tailwind). Entry:
-  `src/main.tsx`, state in `src/context/AppContext.tsx`, screens in
-  `src/components/`.
-- `FINAL_PRD.md` — product requirements (source of truth for features).
-- `UI_UX_RESEARCH.md`, `LEARNINGS.md` — design research and decisions.
-- No backend directory exists yet; when backend work starts it gets its own
-  top-level directory.
+**Target layout** (the code folders below are created in phase **P00** — they
+do not exist until P00 lands; the mock `Frontend_Website/` is deleted in P00):
+
+- `frontend/` — Vite + React 18 + TypeScript PWA (Tailwind). Vercel-deployed.
+  Frontend phases write only here.
+- `backend/` — Fastify API + Python workers + Postgres/PostGIS + data. Runs on
+  the owner's VPS. Backend phases write only here (`api/`, `workers/`,
+  `db/migrations/`, `infra/`).
+- `contracts/` — the tiny frozen root seam: zod API/SSE schemas, shared types,
+  event catalog, unified category enum, `design-tokens.json`, golden fixtures.
+  No build tooling. The only code either app may import; the two apps never
+  import each other.
+- `phases/` — the execution plan: `INDEX.md` (34 phases P00–P33, milestones
+  M1–M8, dependency graph, merge protocol) + one file per phase. **This is the
+  execution source of truth.**
+
+**Planning docs (the four Markdown sources of truth):**
+
+- `FINAL_PRD.md` — product requirements (product source of truth for features).
+- `phases/INDEX.md` + phase files — execution source of truth (build order).
+- `UI_UX_RESEARCH.md`, `LEARNINGS.md` — design research and the decision log.
 
 ## Roles
 
@@ -85,8 +99,26 @@ Stopping with a plan, a partial result, or a "next steps" list is a
 failure. The only valid exits: fully delivered, or genuinely blocked on
 input only the user can provide.
 
+### Phase workflow
+
+Execution is organized into fine-grained phases in `phases/INDEX.md`
+(P00–P33, milestones M1–M8). The rules:
+
+- Every implementation session works on **exactly one phase**, on a branch
+  `phase/NN-slug` cut from the latest `main`.
+- A phase may **start only once every phase it depends on** (per the
+  `phases/INDEX.md` dependency graph) **is merged**; run parallel sessions only
+  on mutually independent phases.
+- As the session works, it **updates that phase file's resume checklist** and
+  **flips the phase's status in `phases/INDEX.md`** (todo → in-progress → done).
+- **Merges happen in dedicated merge sessions, in dependency order** — never
+  merge a phase before a phase it depends on. See FINAL_PRD.md §18 for the full
+  protocol.
+
 ## Verification commands
 
-- Frontend: `cd Frontend_Website && npm install && npm run build && npm run lint`
-- There is no test runner configured yet; if an implementer adds one,
+- Frontend: `cd frontend && npm install && npm run build && npm run lint && npm run typecheck`
+- Backend: backend verification commands are defined per phase file; record the
+  canonical ones here once P00 lands.
+- There is no repo-wide test runner configured yet; if an implementer adds one,
   record the command here.

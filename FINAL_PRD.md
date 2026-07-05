@@ -2,7 +2,7 @@
 
 > **Status:** Production specification — the single authoritative PRD, **ready to implement**. Grounded in ten deep-research rounds, both parent apps (the original InTown PRD and the as-built Europe Trip Map app), a survey of the current codebase, and all owner decisions. The complete reasoning trail lives in `LEARNINGS.md`; the verified UI/UX evidence base lives in `UI_UX_RESEARCH.md` (all claims adversarially verified 2026-07-04 — zero refuted).
 > **Date:** 2026-07-04 (v2: verified Color System v2 in §17, corrected research claims, parallel work-package implementation plan in §18).
-> **⚠️ Codebase directive:** the existing `Frontend_Website/` is a design-era mock (placeholder map, fake generation, hardcoded data) whose only value — the UX flow ideas and lessons — is already absorbed into this document. **It is scrap. WP-0 (§18) deletes it entirely and the architecture starts from scratch.** No code in this repository is to be treated as a foundation; this PRD is the foundation.
+> **⚠️ Codebase directive:** the existing `Frontend_Website/` is a design-era mock (placeholder map, fake generation, hardcoded data) whose only value — the UX flow ideas and lessons — is already absorbed into this document. **It is scrap. Phase P00 (§18) deletes it entirely and the architecture starts from scratch.** No code in this repository is to be treated as a foundation; this PRD is the foundation.
 > **Vision in one line:** *A traveler normally needs 100+ hours of YouTube videos and blog posts to plan the perfect city trip. InTown reads all of it, verifies it, personalizes it, schedules it, and then walks the trip with you — offline.*
 
 ---
@@ -12,8 +12,8 @@
 - **📐 Behavior** — the requirement.
 - **⚙️ Mechanics** — implementation approach.
 - **🧭 Lesson** — carried from a parent app (ET = Europe Trip app, IT = InTown v1) or research, and why.
-- **[P1] [P2] [P3]** — delivery phase tags. Everything is specified now; phases only sequence the build.
-- **[WP-n]** — work-package assignment (§18): the independently-implementable unit that owns this feature.
+- **[P1] [P2] [P3]** — **product-scope** tags. Everything is specified now; these tags mark *what ships in which product tier*, **not build order** — execution order is defined solely by `phases/INDEX.md` (§18).
+- **[WP-n]** — the original work-package assignment (§18). WPs are retained as a reference and map onto the fine-grained phases (P00–P33) that now govern execution (§18.4 mapping table).
 
 **For the implementing model (the "workhorse"):** this PRD is written to be executed without interpretation. The rules of engagement are in §18.2 and are binding: implement exactly what is specified, only inside your work package's file ownership, mocking everything outside it against the frozen contracts. **Never assume, never invent, never "improve" beyond the spec.** If something is genuinely ambiguous or contradictory, stop and return a numbered question list to the supervising session ("conductor") instead of guessing.
 
@@ -67,11 +67,15 @@ A **map-first, multi-user, offline-first AI trip companion** (PWA first, native 
 | 18 | **Gamification of the on-the-go database:** territory opening ("first InTown traveler here"), themed badges, and community roles (Explorer, Knowledge Keeper, Pathfinder) reward the behaviors that grow the City Brain (§6.21). |
 | 19 | **Social import → "Want to go":** users share an Instagram Reel / TikTok link; the app extracts the places into a personal Want-to-go list that resurfaces (highlighted) in the longlist when a matching trip is planned (§6.22). |
 | 20 | **Self-hosted on the owner's own VPS(s); no third-party BaaS cloud.** All infrastructure runs on VPS servers we control. Supabase *cloud* is not used (data residency, cost control, no vendor lock-in). (§12.1) |
-| 21 | **Backend = the "plainer path": plain PostgreSQL + PostGIS + our own API (Fastify/Next) + Auth.js (a library, not a separate auth server) + object storage (disk/MinIO) + *only* the self-hosted Supabase **Realtime** container** for live collaboration (Broadcast/Presence). The full Supabase stack is **not** run, and Supabase source is **never forked or stripped** — load is reduced by running fewer services, not by editing their code. (§12, §12.1) |
+| 21 | **Backend = the "plainer path": plain PostgreSQL + PostGIS + our own API (Fastify) + Auth.js (a library, not a separate auth server) + object storage (local disk first, MinIO optional later) + *only* the self-hosted Supabase **Realtime** container** for live collaboration (Broadcast/Presence). The full Supabase stack is **not** run, and Supabase source is **never forked or stripped** — load is reduced by running fewer services, not by editing their code. (§12, §12.1) |
 | 22 | **Geocoding: Geoapify (OSM-based) free tier as primary at launch** — free, storable, accurate enough for European cities; self-hosted Photon/Nominatim deferred (RAM/disk heavy). **Google Geocoding/Places used only as fallback-on-miss** verification, storing **only `place_id`** (permitted indefinitely); all other Google content is never persisted beyond the ToS 30-day cache. (§5.2, §12) |
 | 23 | **Coordinate-integrity doctrine (anti-fake-location — a traveler must never be sent to a wrong/fake location).** The LLM **never emits coordinates** (hallucination risk). Every coordinate carries a source + confidence; a place is shown as a **precise pin only when ≥2 independent geo-sources agree within ~100 m**, else labeled **"approximate — verify on arrival,"** and unverifiable places are not offered as navigable destinations. First-traveler GPS confirmation closes the loop. **Provenance is a fact, not a relabelable tag — a Google-derived coordinate is never stored as OSM.** (§5.5, §7, §14) |
-| 25 | **Two dedicated deployable folders: `Frontend/` (React PWA → Vercel) and `Backend/` (API + Python services + data → owner's VPS), joined only by a shared frozen `contracts/` seam.** Every build work package is purely frontend or purely backend (§18), matching the `frontend-implementer`/`backend-implementer` role split and letting the two deploy independently now (Vercel + VPS) or co-locate on one server later with zero code change. No user data/API/DB ever lives on Vercel (§12.1). |
 | 24 | **Out-of-town scenic places: existence is not the whole promise — reachability and the view itself are verified too.** A hidden viewpoint outside the city (the classic Instagram-photo-spot case) can have a correct coordinate and still burn a traveler's afternoon. So: (a) navigable out-of-town destinations require corroborated **access facts** (reach modes — car/transit/hike, last-leg distance, seasonal closures, private-land constraints) or carry an explicit **"access unverified"** label and are never auto-scheduled; (b) claimed views are sanity-checked with a **DEM viewshed line-of-sight test** (free, open elevation data). (§5.4, §5.5, §8, §14) |
+| 25 | **Two dedicated deployable folders: `frontend/` (React PWA → Vercel) and `backend/` (API + Python workers + data → owner's VPS), joined only by the shared frozen root `contracts/` seam (#28).** Every build phase is purely frontend or purely backend (§18), matching the `frontend-implementer`/`backend-implementer` role split and letting the two deploy independently now (Vercel + VPS) or co-locate on one server later with zero code change. No user data/API/DB ever lives on Vercel (§12.1). |
+| 26 | **Payments: Stripe.** Pay-per-city is a one-off charge via **Stripe Checkout** (not a subscription); **Stripe Tax** computes/collects EU VAT; the owner is **merchant of record**; first city free with the personalization opt-in (#17, §15). No card data touches our servers. Price point and regional pricing remain open (§20). |
+| 27 | **Job queue: Postgres-backed (SKIP LOCKED pattern), no Redis initially.** Pipeline/solver/narration/janitor work is enqueued in Postgres and claimed with `FOR UPDATE SKIP LOCKED`; a dedicated broker (Redis/NATS) is deferred until load demands it — same "plainer path / fewer services" logic as #21. (§12, §12.1) |
+| 28 | **A tiny root `contracts/` folder alongside `frontend/` and `backend/`** holds the frozen seam — zod API/SSE schemas, shared TS types (§10), the §9.1 event catalog, the unified category enum (§5.4), `design-tokens.json` (§17), and golden fixtures — with **no build tooling**. It is the *only* code either app may import; frontend and backend never import each other (refines #25; §18.3). |
+| 29 | **Execution sequencing is governed by the fine-grained phase plan in `phases/` (INDEX.md + one file per phase, P00–P33 across milestones M1–M8), which supersedes the P1/P2/P3 "mega-phasing" for build order.** The [P1]/[P2]/[P3] tags remain **product-scope** markers; `phases/INDEX.md` is the **execution** source of truth (dependency graph + parallel-session merge protocol). The PRD stays the product source of truth. (§18) |
 
 ---
 
@@ -210,7 +214,7 @@ The **City Brief** (§5.6) additionally carries the city's **food identity**: th
 ### 6.1 Accounts & traveler profile [P1]
 
 📐 Sign-in required (magic link + Google OAuth). **Traveler profile:** name, **age band aligned to European pricing boundaries** — <18 / 18–25 / 26–44 / 45–64 / 65+ (data-minimized: band, never birthdate) — plus **EU/EEA residency** (yes/no) and **student status**, because attraction discounts hinge on all three (under-26 EEA free at French national museums; 65+ reduced in Italy but *not* France; ISIC student rates); mobility (full / limited / wheelchair / stroller), languages, home currency. Drives editable defaults: pace preset, dwell padding, walking budget, **departure buffers** (§6.8), heat-aware scheduling, accessibility filtering, and the **price engine** ("free for you" detection). **Anti-ageism rule (research: 61% of families report grandparents more active than expected; most design research carries ageist assumptions): age pre-selects a pace preset the user sees and can change — it never caps anything.** Full GDPR export + deletion.
-⚙️ Supabase Auth (or Auth.js + Postgres); httpOnly sessions, revocable server-side (🧭 ET gap: constant-payload cookie), rate-limited auth + research endpoints. RLS multi-tenant from day one (🧭 ET gap: hardcoded trip, no scope checks).
+⚙️ **Auth.js** (a library inside the API, not a separate auth server — decision #21) over Postgres; httpOnly sessions, revocable server-side (🧭 ET gap: constant-payload cookie), rate-limited auth + research endpoints. RLS multi-tenant from day one (🧭 ET gap: hardcoded trip, no scope checks).
 
 ### 6.2 Taste profile [P1]
 
@@ -244,7 +248,7 @@ Every stored answer must later surface as a visible **"because you said X" chip*
 
 ### 6.4 Trip setup [P1]
 
-📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar with endowed first step per §6.2) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users. **Built from scratch per this spec** — the old `Frontend_Website` wizard is deleted with the rest of the mock frontend (WP-0); its only surviving contribution is the flow idea, which this section now fully specifies: one question per screen, visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
+📐 Redesigned to the progressive-profiling map (§6.2): city + dates + arrival/departure times → companions → pace → budget band (one-tap screens, progress bar with endowed first step per §6.2) → **photo-swipe taste round** (first trip only; later trips show the profile pre-filled with a "still you?" confirmation) → accommodation anchor (location / address / skip) → transport mode → must-see + avoid lists (optional, skippable). Luggage-storage flag and departure deadline collected on the departure-day sheet, not upfront. Under 2 minutes for returning users. **Built from scratch per this spec** — the old `Frontend_Website` wizard is deleted with the rest of the mock frontend (phase P00); its only surviving contribution is the flow idea, which this section now fully specifies: one question per screen, visible plan-shaping feedback ("family mode: shorter walks, playground stops ✓").
 
 ### 6.5 Research pipeline UX [P1]
 
@@ -482,7 +486,7 @@ Realtime channels: `trip:{id}` broadcast + presence.
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TS + Vite PWA in the top-level **`Frontend/`** folder — **built from scratch; the existing `Frontend_Website/` is deleted in WP-0 (mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
+| Frontend | React + TS + Vite PWA in the top-level **`frontend/`** folder — **built from scratch; the existing `Frontend_Website/` is deleted in phase P00 (§18, mock-era code, zero reuse)**; Zustand; SW + OPFS/Cache Storage/IndexedDB. Deploys to **Vercel** (static/edge build; decision #25) |
 | Map | MapLibre GL JS + Protomaps PMTiles (self-hosted/R2); own PostGIS vector-tile POI layer |
 | Geocoding/search | **Geoapify (OSM-based) as primary at launch — free tier, results storable; Google Geocoding/Places as fallback-on-miss (`place_id`-only storage). Self-hosted Photon/Nominatim deferred** (RAM/disk heavy) to a later dedicated box |
 | POI ingestion (City Brain build) | **Overpass API** (Overpass QL bulk tag sweep per city bbox — viewpoints/museums/parks/historic, incl. unnamed nodes geocoding can't reach): kumi.systems primary, overpass-api.de fallback; **Geoapify Places API** as the degrade path (same open data, managed); self-hosted Overpass deferred (like Nominatim/Photon). Distinct from geocoding — this is the bulk sweep that seeds each Brain (§5.2) |
@@ -492,23 +496,23 @@ Realtime channels: `trip:{id}` broadcast + presence.
 | LLM | Tiered, provider-agnostic (reasoning + fast); **Gemini paid tier for YouTube URL ingestion**; zod-validated I/O |
 | Solver | OR-Tools routing (Python service); CP-SAT offline auditor; JS/WASM greedy+2-opt on device |
 | TTS | Piper/Kokoro self-hosted → Google Cloud TTS free-tier fallback |
-| DB/Auth/Storage/Realtime | **Self-hosted on VPS (owner decision #20–21): PostgreSQL + PostGIS · Auth.js (library in the API, not a separate auth server) · object storage on disk / MinIO · *only* the self-hosted Supabase **Realtime** container for Broadcast+Presence.** Full Supabase cloud/stack not used; source never forked |
-| Backend | TypeScript API (Fastify) + Python pipeline/solver workers + job queue in the top-level **`Backend/`** folder; SSE for progress; **self-hosted on the owner's VPS** (§12.1) |
-| Repo shape | Two dedicated deployable folders — `Frontend/` (Vercel) and `Backend/` (VPS) — joined only by a shared, frozen `contracts/` seam (types, API schemas, design tokens, fixtures). Neither folder imports the other; CI enforces the boundary (§18.3). Decision #25 |
+| DB/Auth/Storage/Realtime | **Self-hosted on VPS (owner decision #20–21): PostgreSQL + PostGIS · Auth.js (library in the API, not a separate auth server) · object storage on **local disk first (MinIO optional later)** · *only* the self-hosted Supabase **Realtime** container for Broadcast+Presence.** Full Supabase cloud/stack not used; source never forked |
+| Backend | TypeScript API (Fastify) + Python pipeline/solver workers + a **Postgres-backed job queue** (SKIP LOCKED pattern; no Redis initially — decision #27) in the top-level **`backend/`** folder; SSE for progress; **self-hosted on the owner's VPS** (§12.1) |
+| Repo shape | Two dedicated deployable folders — `frontend/` (Vercel) and `backend/` (VPS) — joined only by a shared, frozen root **`contracts/`** seam (types, API/SSE schemas, event catalog, unified category enum, design tokens, fixtures; no build tooling). Neither folder imports the other; CI enforces the boundary (§18.3). Decisions #25, #28 |
 | Push | Web Push (VAPID) — Android + iOS ≥16.4 installed PWA |
 | Ranking [P2] | LightGBM LambdaMART; replay harness in CI |
 | Observability | Structured logs, Sentry, per-stage pipeline metrics, per-API cost meters + alerts |
 
 ### 12.1 Deployment & hosting — self-hosted VPS (owner decisions #20–21)
 
-**Posture:** the **`Backend/` folder** (API, Python services, Postgres/PostGIS, object storage, Realtime, OSRM, TTS, solver) runs on the owner's own VPS(s) (e.g., Hetzner/OVH/DigitalOcean); no third-party BaaS cloud for data/API/DB. This gives data residency (EU hosting, §16.1), cost control, and no vendor lock-in — at the cost of owning backups, patching, uptime, and scaling ourselves. The **`Frontend/` folder** is a static PWA build deployed to **Vercel** (decision #25) — this is compatible with the "no BaaS" posture because Vercel hosts only the static/edge frontend bundle; **no user data, API, or database ever lives there** (all of that is on the VPS, reached over HTTPS via the `contracts/` API). The two folders are independently deployable, so moving the frontend onto the same VPS later (or anywhere else) is a deploy-target change, not a code change.
+**Posture:** the **`backend/` folder** (API, Python workers, Postgres/PostGIS, object storage, Realtime, OSRM, TTS, solver) runs on the owner's own VPS(s) (e.g., Hetzner/OVH/DigitalOcean); no third-party BaaS cloud for data/API/DB. This gives data residency (EU hosting, §16.1), cost control, and no vendor lock-in — at the cost of owning backups, patching, uptime, and scaling ourselves. The **`frontend/` folder** is a static PWA build deployed to **Vercel** (decision #25) — this is compatible with the "no BaaS" posture because Vercel hosts only the static/edge frontend bundle; **no user data, API, or database ever lives there** (all of that is on the VPS, reached over HTTPS via the `contracts/` API). The two folders are independently deployable, so moving the frontend onto the same VPS later (or anywhere else) is a deploy-target change, not a code change.
 
 **The "plainer path" (chosen over self-hosting the full Supabase stack).** Self-hosted Supabase is ~10 Docker containers (Postgres, GoTrue, PostGREST, Realtime, Storage, Kong, Studio, postgres-meta, imgproxy, Analytics/Logflare+Vector); the genuinely heavy piece besides Postgres is the Analytics/Logflare stack. Rather than run all of it — or fork and strip its source (rejected: components are separate repos in different languages; the overhead is *processes*, not code bloat, so deleting source doesn't help, and a fork forfeits upstream security patches for auth/storage) — we **compose from standard parts and libraries**:
 
 - **PostgreSQL + PostGIS** — installed directly (unavoidable core; light at our scale).
-- **Our own API** (Fastify/Next) — replaces PostgREST + Kong entirely.
+- **Our own API** (Fastify) — replaces PostgREST + Kong entirely.
 - **Auth.js** — a library inside the API (near-zero extra process), lighter than running GoTrue.
-- **Object storage** — disk + API, or MinIO (S3-style) when needed.
+- **Object storage** — **local disk + API first**; MinIO (S3-style) is an optional later addition when scale demands it.
 - **Realtime** — the *one* Supabase piece worth borrowing as-is: run just the self-hosted **Realtime** container (Elixir, memory-efficient) for the live curation list's Broadcast + Presence (§6.3, D47). Fallback: a small WebSocket handler in our API.
 
 **Load reality:** at ~50 users, interactive concurrency (API/DB/auth/realtime) is trivial — the VPS footprint is dominated by the **geo/AI infrastructure** (OSRM routing, PMTiles serving, TTS, Python solver/AI workers), not by user count. LLMs run on **external APIs** (Claude/Gemini) — no VPS load, but the real variable cost (§15). Geocoding is offloaded to **Geoapify's free tier** so the RAM/disk-heavy Nominatim/Photon can be deferred.
@@ -539,6 +543,7 @@ Schema validation at every LLM boundary (bounded retries → degrade) · citatio
 - The user **pays once per city itinerary**. That purchase funds the one expensive event — the deep research — and includes **unlimited reconfigures, go-nows, and re-solves for that city** (solver runs cost fractions of a cent; weather and all raw context feed the solver freely).
 - Deep research runs **once per city per purchase**: it produces the prioritized longlist + decision data; everything after is curation + solving on cached results. City Brain reuse across users means the *marginal* research for a warm city is far below the price — healthy unit economics that improve with scale.
 - **First city free (owner decision): the freemium hook is "first city free, in exchange for personalization data opt-in."** Free-tier users consent to behavioral learning as part of claiming the free city; **paying users get the full opt-out option.** ⚠️ Legal note: this is the "consent-or-pay" pattern — defensible for a small business with a reasonably-priced paid alternative, but the EDPB has scrutinized it (Opinion 08/2024, aimed at large platforms); mitigations: (a) using the preferences a user *explicitly gives* (interests, diet, pace) to build their itinerary is **contractual necessity** (Art. 6(1)(b)) and needs no consent at all — only cross-trip *behavioral learning* rides on the consent; (b) keep the paid opt-out genuinely equivalent in features; (c) legal review before launch (§20).
+- **Payment provider: Stripe (owner decision #26).** The pay-per-city purchase is a one-off charge via **Stripe Checkout** (not a subscription); **Stripe Tax** computes and collects EU VAT; the owner is the **merchant of record**. The first city is free in exchange for the personalization-data opt-in (above); every additional city is a Stripe Checkout one-off. No card data touches our servers (Checkout-hosted).
 - Price point and regional pricing remain open business questions (§20). Offline is always included, never an upsell (the wedge). Affiliate links remain a labeled later experiment per owner decision #7.
 
 ## 16. Compliance & legal
@@ -665,34 +670,37 @@ Verified basis: color-vision deficiency does not reduce text readability (lumina
 
 The shared `contracts/` seam (§18.3) ships the tokens as data (`design-tokens.json`) **plus a contrast-assertion test** (run in Frontend CI): every declared text/background pair is recomputed (WCAG 2.2 relative luminance + APCA-4g) on every CI run and must meet its declared role's floor — body text ≥4.5:1 **and** ≥Lc 75; large/semibold ≥3:1 **and** ≥Lc 45; non-text UI ≥3:1. A token change that breaks a floor fails the build. This makes §17.2–17.4 self-verifying rather than aspirational (the v1 palette shipped "all combinations WCAG AA" as prose and was wrong; v2 makes it a test).
 
-## 18. Implementation plan — independent work packages, parallel-safe by construction
+## 18. Implementation plan — fine-grained phases over a frozen contract seam
 
-> **This section replaces the old linear roadmap.** The build is decomposed into **work packages (WPs)**: units sized for one focused implementation session each, with **disjoint file ownership** and **frozen shared contracts**, so any two WPs can be built in parallel sessions (or one by one — the structure supports both) and merged later with near-zero conflict surface. P1/P2/P3 phase tags still describe *product* sequencing; WPs describe *build* sequencing.
+> **Execution is governed by `phases/INDEX.md`, not by this section.** The PRD is the **product** source of truth; the phase plan in **`phases/`** (an `INDEX.md` plus one file per phase, **P00–P33 across milestones M1–M8**) is the **execution** source of truth (decision #29). This section explains the *decomposition philosophy* the phase plan is built on and the *rules every implementation session obeys*; the concrete ordered work, dependency graph, and per-phase resume checklists live in `phases/`.
+>
+> **The decomposition rationale (why it is safe to build in parallel):** the build is cut into small units — each sized to **complete within one focused session** — with **disjoint file ownership** and a **frozen shared contract seam**, so any two independent units can be built in parallel sessions (or one by one) and merged later with near-zero conflict surface. The original design used coarse "work packages" (WP-0, B1–B9, F1–F8); those have been refined into the finer-grained phases P00–P33 (§18.4 maps old→new). P1/P2/P3 remain *product-scope* tags; phases define *build* order.
 
 ### 18.1 Operating model: conductor and workhorse
 
-- **Conductor** (supervising session — Fable 5): owns this PRD, the contracts, WP assignment, contract-change approval, merge sessions, and acceptance.
-- **Workhorse** (implementing session — Opus 4.8): executes exactly one WP per session, per §18.2. The workhorse's job is faithful execution, not product judgment. **Every WP is purely frontend or purely backend** (§18.3) — a frontend WP is run by the `frontend-implementer` agent and touches only `Frontend/`; a backend WP is run by the `backend-implementer` agent and touches only `Backend/`. No WP ever spans both folders (this is what makes the CLAUDE.md role separation and the Vercel/VPS deployment split both hold).
-- Typical usage: *"Implement B2 per FINAL_PRD.md §18. Follow §18.2 strictly."* — one backend session. In parallel, *"Implement F5 …"* — one frontend session. A third session later runs *"Merge B5 and F4 per §18.6."*
+- **Conductor** (supervising session — Fable 5): owns this PRD, the contracts, phase assignment, contract-change approval, merge sessions, and acceptance.
+- **Workhorse** (implementing session — Opus 4.8): executes exactly **one phase from `phases/INDEX.md` per session**, per §18.2. The workhorse's job is faithful execution, not product judgment. **Every phase is purely frontend or purely backend** (§18.3) — a frontend phase is run by the `frontend-implementer` agent and touches only `frontend/`; a backend phase is run by the `backend-implementer` agent and touches only `backend/`. No phase ever spans both folders (this is what makes the CLAUDE.md role separation and the Vercel/VPS deployment split both hold).
+- Typical usage: *"Implement phase P08 per `phases/INDEX.md` and FINAL_PRD.md §18. Follow §18.2 strictly."* — one backend session. In parallel, *"Implement P15 …"* — one frontend session. A later session runs *"Merge the P06 and P13 branches per §18.6."*
 
 ### 18.2 Workhorse rules of engagement (binding, non-negotiable)
 
-1. **Scope is law.** Write only inside your WP's **Owns** paths (§18.4), which live entirely within your one folder (`Frontend/` or `Backend/`). Never create, edit, or delete a file outside them — and **never touch the other folder**. If your WP seems to need a change elsewhere, stop and report — do not make it.
-2. **Contracts are frozen.** `contracts/**` is read-only for every WP except WP-0. It is the *only* shared code either folder may import. If a contract is wrong or missing, stop and produce a **contract-change request** (what, why, exact proposed diff) for the conductor. Never work around a contract, never fork a type locally, never reach into the other folder's source.
-3. **No assumptions, no inventions.** Everything you need is specified in this PRD (the referenced §§ per WP) or in the contracts. If something is genuinely ambiguous, underspecified, or contradictory: **stop and return a numbered question list.** Do not pick "the reasonable option" silently. Do not add features, options, settings, or "improvements" that are not in the spec. Do not upgrade/downgrade specified libraries or swap specified technologies.
-4. **Mock across the seam.** The frontend↔backend boundary is the API contract in `contracts/`. A frontend WP consumes the contract's types + fixtures and **never calls a live backend**; a backend WP produces responses that satisfy the contract + fixtures and **never imports frontend code**. Never stub a contract with invented shapes — use the fixtures.
-5. **Branch discipline.** Frontend WPs on `fe/<n>-<slug>` (e.g., `fe/5-plan-view`), backend WPs on `be/<n>-<slug>` (e.g., `be/2-city-brain`); WP-0 on `wp/0-foundations`. Branch from the commit where WP-0 landed on `main` (or latest `main` if later WPs have merged — never from another unmerged WP branch). Commit messages: `<WP-id>: <imperative summary>`. Push only your own branch.
-6. **Definition of done is a gate, not a suggestion.** A WP is complete only when every DoD item (§18.4) passes locally: typecheck, lint, unit tests, the WP's own verification script, and the §17.9 contrast test where UI is touched. Report results honestly — a failing test is reported as failing, never papered over.
-7. **Self-contained proof.** Every WP ships a `VERIFY.md` in its owned area: exact commands to run its tests/demo against fixtures, so the merge session can validate it without re-reading the diff.
+1. **Scope is law.** Write only inside your phase's **Owns** paths (listed in that phase's file in `phases/`), which live entirely within your one folder (`frontend/` or `backend/`). Never create, edit, or delete a file outside them — and **never touch the other folder**. If your phase seems to need a change elsewhere, stop and report — do not make it.
+2. **Contracts are frozen.** `contracts/**` is read-only for every phase except P00. It is the *only* shared code either folder may import. If a contract is wrong or missing, stop and produce a **contract-change request** (what, why, exact proposed diff) for the conductor. Never work around a contract, never fork a type locally, never reach into the other folder's source.
+3. **No assumptions, no inventions.** Everything you need is specified in this PRD (the referenced §§ per phase) or in the contracts. If something is genuinely ambiguous, underspecified, or contradictory: **stop and return a numbered question list.** Do not pick "the reasonable option" silently. Do not add features, options, settings, or "improvements" that are not in the spec. Do not upgrade/downgrade specified libraries or swap specified technologies.
+4. **Mock across the seam.** The frontend↔backend boundary is the API contract in `contracts/`. A frontend phase consumes the contract's types + fixtures and **never calls a live backend**; a backend phase produces responses that satisfy the contract + fixtures and **never imports frontend code**. Never stub a contract with invented shapes — use the fixtures.
+5. **Branch discipline.** Each phase is built on a branch **`phase/NN-slug`** (e.g., `phase/08-city-brain-core`), **cut from the latest `main`**. A phase may only **start once every phase it depends on (per the `phases/INDEX.md` dependency graph) is merged to `main`** — never branch from another unmerged phase branch. Run parallel sessions **only on mutually independent phases**. Commit messages: `PNN: <imperative summary>`. Push only your own branch.
+6. **Definition of done is a gate, not a suggestion.** A phase is complete only when every DoD item in its phase file passes locally: typecheck, lint, unit tests, the phase's own verification script, and the §17.9 contrast test where UI is touched. Report results honestly — a failing test is reported as failing, never papered over.
+7. **Keep the phase file live.** As you work, update your phase file's **resume checklist** so any later session can pick up mid-phase, and flip its status in `phases/INDEX.md` (todo → in-progress → done) — plus the `VERIFY.md` in your owned area with exact commands to re-run its tests/demo against fixtures, so a merge session can validate it without re-reading the diff.
 
 ### 18.3 Repository layout — two dedicated deployable folders + a shared contract seam
 
-The build is decomposed into **work packages (WPs)**: units sized for one focused implementation session, with **disjoint file ownership** and **frozen shared contracts**, so any two WPs run in parallel (or one by one) and merge with near-zero conflict surface. The layout is built for the owner's hosting model — **`Frontend/` deploys to Vercel, `Backend/` deploys to the VPS** (decision #25) — so the two are independent, separately-deployable folders; putting both on one server later changes nothing.
+The build is decomposed into **phases** (P00–P33, `phases/INDEX.md`): units sized for one focused implementation session, with **disjoint file ownership** and **frozen shared contracts**, so independent phases run in parallel (or one by one) and merge with near-zero conflict surface. The layout is built for the owner's hosting model — **`frontend/` deploys to Vercel, `backend/` deploys to the VPS** (decision #25) — so the two are independent, separately-deployable folders joined only by the root **`contracts/`** seam (decision #28); putting both on one server later changes nothing.
 
 ```
-/contracts               ← THE frozen seam (WP-0 / conductor only writes). The ONLY code
-                           shared across the folder boundary; imported read-only by both sides.
-    types/               TS types + zod schemas for every entity (§10)
+/contracts               ← THE frozen root seam (P00 / conductor only writes; decision #28). The ONLY
+                           code shared across the folder boundary; imported read-only by both sides.
+                           A tiny data+schema folder with NO build tooling.
+    types/               TS types + zod schemas for every entity (§10) + the unified category enum (§5.4)
     api/                 route contracts: method, path, auth, request/response schemas, SSE shapes (§11)
     events/              §9.1 event-type catalog (names + payload schemas + consent flags)
     design-tokens.json   §17.2–17.4 tokens verbatim + role→floor declarations (§17.9)
@@ -701,93 +709,99 @@ The build is decomposed into **work packages (WPs)**: units sized for one focuse
                          plan, profiles, trip+members, SSE research-progress event stream,
                          solver request/response pairs
     python/              generated pydantic models + JSON Schemas mirroring types/ + fixtures/,
-                         so the Python services validate against the SAME contract (generated, not hand-written)
+                         so the Python workers validate against the SAME contract (generated, not hand-written)
 
-/Frontend                ← Vercel-deployable PWA (React + TS + Vite). Frontend WPs write ONLY here.
+/frontend                ← Vercel-deployable PWA (React + TS + Vite). Frontend phases write ONLY here.
     src/{design-system,app-shell,routes-scaffold,map,auth,onboarding,settings,
          trips,curation,plan,cards,companion,research-progress,
          offline,offline-solver,brief,safety,narration-player,notifications}
     src/sw.ts · public/ (manifest, icons) · ui-tokens/ (generated from ../contracts/design-tokens.json)
     vercel.json
 
-/Backend                 ← VPS-deployable. Backend WPs write ONLY here.
+/backend                 ← VPS-deployable. Backend phases write ONLY here.
     api/src/{auth,profile,consents,pois,research,trips,members,invites,places,
              votes,geo,plan,narration,events,push}      (TypeScript Fastify API)
-    services/pipeline/{brain,research,narration,learning}  (Python workers)
-    services/solver/                                       (Python OR-Tools service)
-    db/migrations/       the complete §10 schema as the baseline chain (append-only; post-WP-0
+    workers/pipeline/{brain,research,narration,learning}  (Python workers)
+    workers/solver/                                       (Python OR-Tools service)
+    workers/queue/                                        (Postgres-backed job queue, SKIP LOCKED — decision #27)
+    db/migrations/       the complete §10 schema as the baseline chain (append-only; post-P00
                          schema changes are contract changes — conductor-approved, written by the
-                         owning backend WP)
+                         owning backend phase)
     infra/               docker-compose.dev (Postgres+PostGIS, MinIO, Supabase Realtime, OSRM),
                          osrm/ config, deploy scripts (§12.1)
 
-/  (root)                pnpm-workspace.yaml (globs: contracts, Frontend, Backend/api) + CI workflows only.
-                         No app code at the root. Vercel builds with Root Directory = Frontend
-                         (pulls contracts as a workspace dep); the VPS builds/ships Backend/.
+/  (root)                pnpm-workspace.yaml (globs: contracts, frontend, backend/api) + CI workflows
+                         + phases/ (execution plan). No app code at the root. Vercel builds with
+                         Root Directory = frontend (pulls contracts as a workspace dep); the VPS
+                         builds/ships backend/.
 ```
 
-**Why a shared `contracts/` and not duplicated copies:** a single source of truth for types/API/tokens/fixtures is what guarantees the frontend and backend agree without ever seeing each other's code. It is small, frozen, and conductor-owned. The Python services don't import TS — they consume `contracts/python/` (generated from the same source in WP-0), so the seam is one contract in two emitted forms, never two hand-maintained truths.
+**Why a shared `contracts/` and not duplicated copies:** a single source of truth for types/API/tokens/fixtures is what guarantees the frontend and backend agree without ever seeing each other's code. It is small, frozen, and conductor-owned. The Python workers don't import TS — they consume `contracts/python/` (generated from the same source in P00), so the seam is one contract in two emitted forms, never two hand-maintained truths.
 
-#### WP-0 — Foundations (the one serializing step; must land first)
+#### P00 — Foundations (the one serializing step; must land first)
 
-One session, conductor-reviewed, merged to `main` before any parallel WP starts.
+One session, conductor-reviewed, merged to `main` before any parallel phase starts. **The `frontend/`, `backend/`, and `contracts/` code folders are created here** (they do not exist until P00 lands). Full per-phase detail is in `phases/` (P00 file); the essentials:
 
-- **Scrap the mock frontend:** `git rm -r Frontend_Website/` — per the §0 directive, zero code reuse. Create the empty `Frontend/` and `Backend/` trees above.
-- **Scaffold** the pnpm workspace + Python service skeletons + the full `contracts/` (types, API/SSE schemas, event catalog, design tokens, fixtures, and the generated `python/` mirror) + the complete §10 schema as the baseline migration chain.
-- **CI skeleton:** typecheck + lint + unit tests per package; §17.9 contrast assertion (Frontend); migration-chain check (Backend); golden-fixture schema validation against both `contracts/types` (TS) and `contracts/python` (the honesty check that keeps mocks real); a **boundary guard** that fails CI if `Frontend/` imports from `Backend/` or vice-versa (only `contracts/` may cross).
-- **DoD:** `cd Backend && docker compose up` gives a healthy dev stack; `pnpm -w test` green; `Frontend` builds a deployable static bundle; fixtures validate on both sides; boundary guard active; `Frontend_Website/` gone; root `README.md` maps every path to its owning WP.
+- **Scrap the mock frontend:** `git rm -r Frontend_Website/` — per the §0 directive, zero code reuse. Create the empty `frontend/` and `backend/` trees above.
+- **Scaffold** the pnpm workspace + Python worker skeletons + the full `contracts/` (types, API/SSE schemas, event catalog, unified category enum, design tokens, fixtures, and the generated `python/` mirror) + the complete §10 schema as the baseline migration chain.
+- **CI skeleton:** typecheck + lint + unit tests per package; §17.9 contrast assertion (frontend); migration-chain check (backend); golden-fixture schema validation against both `contracts/types` (TS) and `contracts/python` (the honesty check that keeps mocks real); a **boundary guard** that fails CI if `frontend/` imports from `backend/` or vice-versa (only `contracts/` may cross).
+- **DoD:** `cd backend && docker compose up` gives a healthy dev stack; `pnpm -w test` green; `frontend` builds a deployable static bundle; fixtures validate on both sides; boundary guard active; `Frontend_Website/` gone; root `README.md` maps every path to its owning phase.
 
-### 18.4 The work packages (P1 scope) — Backend and Frontend blocks
+### 18.4 The phase plan and the old-WP → new-phase map
 
-Each entry: **Owns** (exclusive write paths, all inside one folder) · **Implements** (binding spec §§) · **DoD** (beyond §18.2's universal gates). All WPs run **in parallel** after WP-0. Each backend WP is paired to a frontend WP across the API contract (the "↔ pairs" in §18.5); the pair builds independently and merges together.
+**The ordered, executable work lives in `phases/INDEX.md`** — 34 phases **P00–P33** across **milestones M1–M8**, each fine-grained so it completes within one session, each with its own **Owns** paths, **Implements** spec-§§, **DoD**, dependency list, and resume checklist. `phases/INDEX.md` also carries the **dependency graph** and the **parallel-session merge protocol**. Do not restate that content here; the phase files are authoritative for execution.
 
-**Backend work packages** — `backend-implementer`, write only under `Backend/`:
+The original coarse work packages (WP-0, B1–B9, F1–F8, and the deferred P2/P3 blocks) map onto the finer phases as follows (kept so older references and the [WP-n] tags still resolve):
 
-| WP | Name | Owns (write paths under `Backend/`) | Implements | DoD highlights |
-|---|---|---|---|---|
-| **B1** | Auth, profile & consent API | `api/src/{auth,profile,consents}` | §6.1, §6.2 (server), §16.1 consent, GDPR export/delete | Magic-link + Google OAuth on dev stack; revocable server-side sessions (🧭 ET gap #8); consent flag written to events pipeline; RLS scaffolding |
-| **B2** | City Brain | `services/pipeline/brain`, `api/src/pois` | §5 complete: ingestion (Overpass/Wikidata/Commons/advisories/holidays), atomic facts + conflict hierarchy (§5.3), entity resolution, geo-observation log + expiry purge (§5.5), viewshed test, TTL janitor; `GET /api/pois*` + brief data | Builds a real Brain for 1 golden city from recorded HTTP fixtures (no live calls in CI); resolution/dedup tests; provenance-never-rewritten test; coordinate display-gate unit tests (≥2-source/100m) |
-| **B3** | Research pipeline | `services/pipeline/research`, `api/src/research` | §7 stages 0–3+5; §5.3 prompts (source hierarchy verbatim); §6.5 SSE stage events (shape from contracts); citation + coordinate gates (§14); cost meters (§15) | Zod-validated LLM I/O, bounded retries→degrade; SSE stream matches fixture event shapes; gate tests (uncited fact rejected, LLM coordinate rejected); per-stage cost metering emits |
-| **B4** | Solver service | `services/solver` | §8 complete (every encoding-table row), warm-start replans, independent feasibility checker, CP-SAT auditor (CI) | Solves fixture request <3s incl. golden-hour clones, weather multipliers, deadline buffers; replan warm-start <1s; feasibility checker rejects a seeded-infeasible fixture; determinism test |
-| **B5** | Trips, collaboration & realtime API | `api/src/{trips,members,invites,places,votes}` + realtime handler | §6.3 (roles/invites/merge incl. aggregate-only disclosure), §6.6 server side (fractional indexing, tiers/state), broadcast + presence | Fractional-index conflict test; misery-threshold merge unit tests; aggregate-only disclosure enforced server-side; RLS/ownership checks (🧭 ET gap #11); two-client realtime demo script |
-| **B6** | Geo & adaptation APIs | `api/src/{geo,plan}`, `infra/osrm` | §6.8 anchors/buffers, §6.11 (deep-link params, scenic legs, pass-advisor math), §6.12 orchestration (reconfigure/go-now/closed-now calling B4), plan revisions (append-only, 🧭 gap #1), `GET .../bundle` manifest | Replan round-trip ≤5s against B4 fixture-service; deep-link URLs match §6.11 format exactly; revision append+restore tests; age-band buffer defaults unit-tested |
-| **B7** | Narration & content API | `services/pipeline/narration`, `api/src/narration` | §6.13 (deep text + on-demand TTS + global cache), §5.6/§6.14 data side, §16.4 framing rules | Deep text generated from fixture facts with citations; MP3 cached-once semantics test; framing linter (no "safe" language) on generated text |
-| **B8** | Events, learning v1 & replay harness | `api/src/events`, `services/pipeline/learning` | §9.1 (catalog from contracts), §9.2 v1 (weights, preference summary, Bayesian priors), §9.4 harness + golden-city eval skeleton, §6.15 capture side | Append-only enforced (no UPDATE grant test); impression logging with algo_version; NDCG@k / Kendall-τ on fixture sessions; consent-flag respected end-to-end |
-| **B9** | Notifications API | `api/src/push` | §6.16 P1 server (web push VAPID, deadline scheduler, opt-in categories) | Push round-trip in dev stack; deadline scheduler unit test (6-week Alhambra fixture); categories opt-in-default-off |
+| Old WP | What it was | New phase(s) |
+|---|---|---|
+| WP-0 | Foundations | **P00** |
+| F1 | Design system & app shell | **P01** |
+| B1 | Auth, profile & consent API | **P02 + P04** |
+| F2 | Map platform | **P03 + P05** |
+| B5 | Trips, collaboration & realtime API | **P06 + P14** (partial) |
+| F3 | Auth, profile & onboarding UI | **P07** |
+| B2 | City Brain | **P08 + P09 + P10** |
+| B3 | Research pipeline | **P11** |
+| F4 | Trips & curation UI | **P13** |
+| B6 | Geo & adaptation APIs | **P14** |
+| F5 | Plan, cards & companion | **P15** |
+| B4 | Solver service | **P16 + P19** (partial) |
+| B7 | Narration & content API | **P17** |
+| F6 | Offline, PWA runtime & on-device solver | **P18** |
+| F7 | City Brief, safety UI & narration player | **P20** |
+| B8 | Events, learning v1 & replay harness | **P21** |
+| F8 | Notifications UI | **P22** |
+| B9 | Notifications API | **P23** |
+| — | Notifications (rich, [P2]) | **P24** |
+| — | Payments (Stripe, [P2] — §15, decision #26) | **P25** |
+| — | [P2] features: vault, multi-city, reviews+moderation, gamification, social import, LambdaMART | **P26–P31** |
+| — | [P3]: native app, embeddings/bandits, group-fairness rotation | **P32–P33** |
 
-**Frontend work packages** — `frontend-implementer`, write only under `Frontend/`:
-
-| WP | Name | Owns (write paths under `Frontend/`) | Implements | DoD highlights |
-|---|---|---|---|---|
-| **F1** | Design system & app shell | `src/{design-system,app-shell,routes-scaffold}`, `ui-tokens/`, `public/` | §17 complete; §4 route scaffold (empty screens); theme system (system default + override); PWA manifest/icons/install prompts (🧭 ET gap #5) | Storybook/ladle renders every component in both themes; §17.9 contrast test green; pin-category ramp generated + returned to contracts via change request; Lighthouse PWA installable |
-| **F2** | Map platform | `src/map` | §6.10; §17.4 map layer; §17.7 bottom sheet ↔ map behavior; muted + true-dark basemap styles | Renders fixture city PMTiles offline; pins/clusters/routes from fixture longlist+plan; 3-detent sheet with selected-pin-visible rule; 60fps pan on mid-range Android profile |
-| **F3** | Auth, profile & onboarding UI | `src/{auth,onboarding,settings}` | §6.1/§6.2/§6.4 UI (quiz incl. photo-swipes, endowed progress), consent UI, GDPR export/delete UI | Full quiz flow against fixtures; sign-in gate placement (§6.2); "because you said X" chips; consent screen copy (§16.1) — all against fixtures, no live backend |
-| **F4** | Trips & curation UI | `src/{trips,curation}` | §6.3 UI (roles/invites), §6.6 curation (tiers + drag w/ handles + undo tray), realtime client (broadcast/presence consumer) | Drag/tier flow against fixtures; disagreement chips aggregate-only (assertion test); optimistic reconcile against a mocked broadcast stream; accessible "move to…" fallback |
-| **F5** | Plan, cards & companion | `src/{plan,cards,companion,research-progress}` | §6.5 progress UX (incl. peak reveal), §6.7 cards (citation/uncertainty doctrine), §6.9, §6.12 UI, §6.18 glanceability | Full plan/companion flows against fixtures incl. SSE replay; day tabs filter (🧭 ET gap #7); selection state machine (§4); citation tap-through renders provenance layer; leave-by countdown unit-tested |
-| **F6** | Offline, PWA runtime & on-device solver | `src/{offline,sw}`, `src/sw.ts`, `src/offline-solver` | §6.17 complete (bundles, OPFS PMTiles, Cache Storage media, IndexedDB, `storage.persist()`, reachability heartbeat 🧭 gap #6, automated SW versioning 🧭 gap #10, manifest reconciliation, `/offline` vault); on-device greedy+2-opt re-solver | Playwright airplane-mode E2E: map renders, cards+deep texts readable, edits queue and sync; bundle ≤150MB on fixture city; **offline-solver verified against the SAME `contracts/fixtures` solver request/response pairs as B4** |
-| **F7** | City Brief, safety UI & narration player | `src/{brief,safety,narration-player}` | §5.6/§6.14 surfaces, §6.13 player (play/seek + text toggle + offline fallback), §16.4 framing in UI | Brief/safety render from fixture data with citations; offline fallback shows deep text, never a silent gap (🧭 gap #4); player state machine unit-tested against a fixture MP3 URL |
-| **F8** | Notifications UI | `src/notifications` | §6.16 P1 client (in-app notification center, per-category opt-in toggles, push subscription UX) | Categories opt-in-default-off in UI; notification center renders fixture notifications; subscription prompt flow tested |
-
-**P2/P3 work packages** (same protocol, same FE/BE split, defined when scheduled): vault (§6.19, BE+FE) · multi-city (§6.20, BE+FE) · payments (§15, BE+FE) · reviews+moderation (§6.15/§16.2–3, BE+FE) · gamification (§6.21, BE+FE) · social import (§6.22, BE+FE) · LambdaMART+interleaving (§9.2, BE) · TWA/Play Store (FE/build) · P3: native app, embeddings/bandits, fairness rotation.
+The detailed per-WP **Owns / Implements / DoD** tables that used to live here have been absorbed verbatim into the corresponding phase files in `phases/`; the frozen-contract seam, disjoint ownership, and fixture-decoupling that made them parallel-safe are unchanged (§18.2–18.3).
 
 ### 18.5 Dependency truth (what parallel really means)
 
-- **Hard order:** WP-0 → everything. Nothing else is hard-ordered: every WP builds and tests against `contracts/` + fixtures, never against another WP.
-- **The frontend↔backend pairs** (build independently, merge together): B1↔F3 (auth/onboarding) · B5↔F4 (trips/curation) · B2+B3↔F5+F2 (brain/research → plan/cards/map) · B4↔F6 (authoritative solver ↔ on-device re-solver, joined by shared solver fixtures) · B6↔F5/F6 (geo/adaptation) · B7↔F7 (narration) · B8↔F4/F5 (events emitted by the UIs) · B9↔F8 (notifications).
-- **Fixtures are the decoupling mechanism.** F5 builds the plan view against the fixture plan long before B4 exists; B3 emits SSE events matching the fixture stream F5 already replays. If a fixture proves wrong, that's a contract change (§18.2 rule 2) — fixed once, centrally, by the conductor, and both sides pick it up.
+- **Hard order:** P00 → everything. Beyond that, ordering is defined by the **dependency graph in `phases/INDEX.md`**: a phase may start only once every phase it depends on is merged to `main`; every phase otherwise builds and tests against `contracts/` + fixtures, never against another unmerged phase.
+- **Parallel means independent.** Run parallel sessions **only on mutually independent phases** (no edge between them in the graph). The frontend↔backend pairing is preserved at phase granularity — a backend phase and its consuming frontend phase build independently against the shared contract and merge together.
+- **Fixtures are the decoupling mechanism.** A frontend plan-view phase builds against the fixture plan long before the solver phase exists; the research phase emits SSE events matching the fixture stream the UI already replays. If a fixture proves wrong, that's a contract change (§18.2 rule 2) — fixed once, centrally, by the conductor, and every phase picks it up.
 
 ### 18.6 Merge sessions (also run by a workhorse, different rules)
 
-A merge session integrates 2+ completed WP branches into `main`:
+A merge session integrates one or more completed phase branches into `main`:
 
-1. **Order within the session:** rebase each WP branch onto current `main` — backend branches (`be/*`) then frontend (`fe/*`), each in ascending number. Expect near-zero conflicts (disjoint folders + ownership); any conflict outside `pnpm-lock`/generated files is a protocol violation to report, not silently resolve. A conflict *between* a `Frontend/` and a `Backend/` branch is impossible by construction — if one appears, a WP violated its scope.
-2. **Gates, in order:** per-WP suites (via each `VERIFY.md`) → the boundary guard (no cross-folder imports) → cross-WP integration for the pairs being merged (the contract lists an integration checklist per pair, e.g. B3×F5: live SSE replaces fixture replay identically; B4×F6: both solvers agree on shared fixtures) → relevant §14 gates (golden-city eval once B2+B3+B4+B8 are in; airplane-mode E2E once F2+F5+F6 are in).
-3. **Write scope of a merge session:** integration/wiring/config glue only — a frontend↔backend wiring change touches the API client config in `Frontend/` and route registration in `Backend/`, never a WP's owned logic. Bug fixes inside a WP's area are allowed **only** with a logged note per fix (file, cause, why it couldn't wait for the owning WP's session).
-4. **Milestones (suggested):** M1 = F1+F2 (visual shell on real map) · M2 = +B1+F3 (accounts live) · M3 = B2+B3+B4 (the intelligence spine, backend demo) · M4 = M2+M3+B5+B6+F4+F5 (**the vertical slice: create trip → research → curate → solve → plan view for one golden city — the product exists**) · M5 = +F6+B7+F7 (offline + narration: the companion promise) · M6 = +B8+B9+F8 (learning + push: the compounding promise) → P1 feature-complete, §14 full gate suite, beta.
+1. **Order within the session:** rebase each phase branch onto current `main` and merge **in dependency order** (a phase never merges before a phase it depends on). Expect near-zero conflicts (disjoint folders + ownership); any conflict outside `pnpm-lock`/generated files is a protocol violation to report, not silently resolve. A conflict *between* a `frontend/` and a `backend/` branch is impossible by construction — if one appears, a phase violated its scope.
+2. **Gates, in order:** per-phase suites (via each `VERIFY.md`) → the boundary guard (no cross-folder imports) → cross-pair integration checklists from `phases/INDEX.md` (e.g. research×plan: live SSE replaces fixture replay identically; solver×offline-solver: both agree on shared fixtures) → relevant §14 gates (golden-city eval once the brain/research/solver/learning phases are in; airplane-mode E2E once map/plan/offline phases are in).
+3. **Write scope of a merge session:** integration/wiring/config glue only — a frontend↔backend wiring change touches the API client config in `frontend/` and route registration in `backend/`, never a phase's owned logic. Bug fixes inside a phase's area are allowed **only** with a logged note per fix (file, cause, why it couldn't wait for the owning phase's session).
+4. **Milestones:** the **M1–M8** milestone groupings (which phases land together, and the demoable capability each unlocks — e.g. the vertical slice "create trip → research → curate → solve → plan view for one golden city") are defined in `phases/INDEX.md`; P1 is feature-complete when the phases through its final milestone are merged and the full §14 gate suite is green (beta).
 
-### 18.7 Product phases (unchanged scope, expressed in WPs)
+### 18.7 Product phases vs execution phases
 
-**P1 — the core product** = WP-0 + B1…B9 + F1…F8 (everything tagged [P1] in §5–§16; launches free/beta to seed City Brains and validate willingness-to-pay). **P2 — depth & community** = the P2 work packages above (payments live, vault, public reviews + moderation surface, multi-city, gamification, social import, email digests, LambdaMART, TWA, shareable read-only links). **P3 — expansion** = native app (React Native/Expo — a third top-level folder when it starts), embeddings + bandits, group-fairness rotation, trip journal/memories, community guides, affiliate experiment (if ever).
+The **[P1]/[P2]/[P3]** tags in §5–§16 are **product-scope** markers — *what ships in which product tier* — and are **not** the build order. **Execution order is defined solely by `phases/INDEX.md`** (decision #29); the two are related but distinct (a single product tier is delivered by many execution phases, and some execution phases deliver only part of a tagged feature).
+
+- **[P1] — the core product** (everything tagged [P1] in §5–§16; launches free/beta to seed City Brains and validate willingness-to-pay) is delivered by the P1-scope phases (P00 through the P1 milestones in `phases/INDEX.md`).
+- **[P2] — depth & community**: payments live (Stripe, §15), vault, public reviews + moderation surface, multi-city, gamification, social import, email digests, LambdaMART, TWA, shareable read-only links (phases P24–P31).
+- **[P3] — expansion**: native app (React Native/Expo — a third top-level folder when it starts), embeddings + bandits, group-fairness rotation, trip journal/memories, community guides, affiliate experiment if ever (phases P32–P33).
 
 ## 19. Risks & mitigations
 
