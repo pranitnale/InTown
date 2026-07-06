@@ -30,9 +30,9 @@ Status legend: ⬜ not started · 🟨 in progress (branch) · ✅ merged.
 | ID | Title | Milestone | Depends on | Track | Size | Status |
 |---|---|---|---|---|---|---|
 | P00 | Foundations & contracts freeze | M1 | — | contracts + full-stack scaffold | L | ✅ |
-| P01 | Design system & app shell | M1 | P00 | frontend | L | 🟨 `claude/repo-analysis-implementation-493ffa` |
+| P01 | Design system & app shell | M1 | P00 | frontend | L | ✅ |
 | P02 | Auth backend | M2 | P00 | backend | M | ✅ |
-| P03 | Auth & consent UI | M2 | P01, P02 | frontend | M | 🟨 phase/03-auth-and-consent-ui |
+| P03 | Auth & consent UI | M2 | P01, P02 | frontend | M | ✅ |
 | P04 | Profiles backend | M2 | P02 | backend | M | ⬜ |
 | P05 | Onboarding & profiles UI | M2 | P03, P04 | frontend | L | ⬜ |
 | P06 | Trips & collaboration backend | M4 | P02 | backend | L | ⬜ |
