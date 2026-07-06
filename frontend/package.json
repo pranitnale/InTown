@@ -11,16 +11,21 @@
     "lint": "eslint .",
     "test": "vitest run",
     "generate:tokens": "tsx scripts/generate-tokens.mts",
-    "generate:icons": "node scripts/generate-icons.mjs"
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "ladle": "ladle serve",
+    "ladle:build": "ladle build"
   },
   "dependencies": {
     "@intown/contracts": "workspace:*",
+    "motion": "^12.42.2",
     "react": "^18.3",
     "react-dom": "^18.3",
+    "react-router": "^7.18.1",
     "zustand": "^5"
   },
   "devDependencies": {
     "@eslint/js": "^9",
+    "@ladle/react": "^5.1.1",
     "@tailwindcss/vite": "^4",
     "@types/node": "catalog:",
     "@types/react": "^18.3",

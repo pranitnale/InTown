@@ -73,3 +73,85 @@ export const darkTokens = {
 export const tokens = { light: lightTokens, dark: darkTokens } as const;
 
 export type TokenName = keyof typeof lightTokens;
+
+/**
+ * OKLCH-derived tonal ramps (50→900) for the five InTown seeds, plus the
+ * proposed CVD lightness-separated pin-category ramp. Deterministically
+ * generated from the seeds/anchors — see scripts/oklch.mts and
+ * docs/contract-change-P01-pin-ramp.md.
+ */
+export const rampTokens = {
+  blue: {
+    "50": "#F1F6FF",
+    "100": "#DCE8FF",
+    "200": "#B7D0FF",
+    "300": "#8FB5FF",
+    "400": "#6196FF",
+    "500": "#3170F9",
+    "600": "#1855DD",
+    "700": "#003BBF",
+    "800": "#002A91",
+    "900": "#001A64",
+  },
+  sand: {
+    "50": "#F8F5F0",
+    "100": "#EAE7E2",
+    "200": "#D2CFCA",
+    "300": "#B8B5B1",
+    "400": "#9C9995",
+    "500": "#7E7B77",
+    "600": "#676460",
+    "700": "#504E4A",
+    "800": "#3B3935",
+    "900": "#272521",
+  },
+  ink: {
+    "50": "#F9F5F2",
+    "100": "#EBE7E4",
+    "200": "#D3CECC",
+    "300": "#B9B5B2",
+    "400": "#9D9996",
+    "500": "#7F7B78",
+    "600": "#676461",
+    "700": "#514E4B",
+    "800": "#3C3836",
+    "900": "#282422",
+  },
+  terracotta: {
+    "50": "#FFF3EF",
+    "100": "#FFE0D6",
+    "200": "#FFBEA9",
+    "300": "#FF9574",
+    "400": "#F06C40",
+    "500": "#CD4B1C",
+    "600": "#AE3600",
+    "700": "#892900",
+    "800": "#671C00",
+    "900": "#461000",
+  },
+  jade: {
+    "50": "#DEFFEF",
+    "100": "#A1FFD7",
+    "200": "#89E6BF",
+    "300": "#6FCBA6",
+    "400": "#51AE8A",
+    "500": "#2D8F6D",
+    "600": "#017756",
+    "700": "#005D43",
+    "800": "#004530",
+    "900": "#002D1F",
+  },
+} as const;
+
+export const pinRamp = {
+  "photo": "#F1772E",
+  "viewpoint": "#0071A0",
+  "art": "#EFA81C",
+  "history": "#6407CD",
+  "museum": "#4581FF",
+  "food": "#004F38",
+} as const;
+
+export type RampName = keyof typeof rampTokens;
+export type RampStep = keyof (typeof rampTokens)['blue'];
+export type PinCategory = keyof typeof pinRamp;
