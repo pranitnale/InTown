@@ -42,10 +42,10 @@ cd backend && npm run test && npm run lint && npm run typecheck
 ```
 
 ## Resume checklist
-- [ ] Auth.js providers (magic link + Google) wired into Fastify.
-- [ ] Server-side session store + revocation (all + per-session).
-- [ ] Rate limiting on auth endpoints.
-- [ ] RLS policies + request-scoped user id + ownership middleware.
-- [ ] Consent flag write/read path.
-- [ ] Tests: sign-in, revoke, rate-limit, RLS isolation, ownership reject.
-- [ ] Verification commands green.
+- [x] Auth.js providers (magic link + Google) wired into Fastify.
+- [x] Server-side session store + revocation (all + per-session).
+- [x] Rate limiting on auth endpoints.
+- [x] RLS policies + request-scoped user id + ownership middleware.
+- [x] Consent flag write/read path.
+- [x] Tests: sign-in, revoke, rate-limit, RLS isolation, ownership reject.
+- [x] Verification commands green (typecheck/lint/build; full `pnpm -w test` incl. DB-backed api suite against a local Postgres 16 + PostGIS cluster).
