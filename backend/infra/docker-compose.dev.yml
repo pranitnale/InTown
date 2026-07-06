@@ -26,6 +26,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Single-file mount (NOT a directory mount) so we add the _realtime schema
+      # bootstrap WITHOUT shadowing the postgis image's own /docker-entrypoint-
+      # initdb.d/*.sh scripts that install the PostGIS extensions. Runs before
+      # 10_postgis.sh (alphabetical order); only executes on first cluster init.
+      - ./postgres-init/01-realtime.sql:/docker-entrypoint-initdb.d/01-realtime.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d intown"]
       interval: 5s
@@ -69,7 +74,10 @@ services:
       DB_PASSWORD: postgres_dev_password
       DB_NAME: intown
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENC_KEY: intown_dev_enc_key_16
+      # DEV ONLY. Realtime requires DB_ENC_KEY to be EXACTLY 16 chars (AES key);
+      # SEED_SELF_HOST uses it to encrypt the seeded tenant's DB creds, so a
+      # wrong length crashes the boot after migrations. 16 chars below.
+      DB_ENC_KEY: intown_dev_key16
       API_JWT_SECRET: intown-dev-jwt-secret-change-me-000000
       SECRET_KEY_BASE: intown-dev-secret-key-base-change-me-00000000000000000000000000000000000000
       ERL_AFLAGS: "-proto_dist inet_tcp"

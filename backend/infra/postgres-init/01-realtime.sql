@@ -1,0 +1,15 @@
+-- Dev-only bootstrap for Supabase Realtime (§12.1).
+--
+-- The vanilla postgis/postgis image ships no `_realtime` schema. Realtime's
+-- Ecto migrator runs with `search_path = _realtime` (see DB_AFTER_CONNECT_QUERY
+-- in docker-compose.dev.yml) and its very first statement is
+--   CREATE TABLE IF NOT EXISTS "schema_migrations" (...)
+-- which fails with `3F000 no schema has been selected to create in` unless the
+-- schema already exists. The official Supabase stack gets this schema from its
+-- supabase/postgres init scripts; here we create it ourselves.
+--
+-- Postgres only runs /docker-entrypoint-initdb.d/* on FIRST cluster init (empty
+-- data dir). If you already have a populated `postgres_data` volume, recreate it
+-- (`docker compose -f backend/infra/docker-compose.dev.yml down -v`) for this to
+-- take effect.
+CREATE SCHEMA IF NOT EXISTS _realtime;

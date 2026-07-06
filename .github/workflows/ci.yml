@@ -18,16 +18,16 @@ jobs:
     name: test (pnpm -w test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm -w test
 
   # (b) Frontend: lint, typecheck, deployable build, and design-token drift.
@@ -35,13 +35,13 @@ jobs:
     name: frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @intown/frontend run lint
       - run: pnpm --filter @intown/frontend run typecheck
       - run: pnpm --filter @intown/frontend run build
@@ -55,13 +55,13 @@ jobs:
     name: backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @intown/api run lint
       - run: pnpm --filter @intown/api run typecheck
       - run: pnpm --filter @intown/api run build
@@ -74,16 +74,16 @@ jobs:
     name: python-mirror
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: Provision repo-root .venv (matches scripts/python-tests.sh)
         run: |
           python3 -m venv .venv
@@ -114,13 +114,13 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/intown
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: Apply migrations from empty
         run: pnpm --filter @intown/api run migrate
       - name: Re-run migrations — must apply 0
@@ -135,7 +135,7 @@ jobs:
     name: compose
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate compose config
         run: docker compose -f backend/infra/docker-compose.dev.yml config -q
       - name: Boot core services
