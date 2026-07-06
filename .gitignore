@@ -8,4 +8,5 @@ __pycache__/
 coverage/
 *.tsbuildinfo
 frontend/dev-dist/
+frontend/build/
 .DS_Store

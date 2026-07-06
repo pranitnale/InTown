@@ -100,3 +100,37 @@ body {
 .app-main {
   flex: 1 1 auto;
 }
+
+/*
+ * Skeleton shimmer (design-system `<Skeleton/>`). A left→right sweep of a faint
+ * text-tinted highlight over the neutral block color set via `bg-border`.
+ * Under `prefers-reduced-motion: reduce` the animation and the moving gradient
+ * are removed, leaving the static block (never a pulsing/moving element).
+ */
+@keyframes ds-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.ds-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--text) 10%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: ds-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-shimmer {
+    animation: none;
+    background-image: none;
+  }
+}
