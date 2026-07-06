@@ -12,15 +12,25 @@
     "migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
+    "@auth/core": "0.40.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "@intown/contracts": "workspace:*",
     "fastify": "^5",
-    "pg": "^8"
+    "fastify-plugin": "^5.1.0",
+    "nodemailer": "^6.10.1",
+    "pg": "^8",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:",
-    "vitest": "catalog:",
-    "tsx": "catalog:",
     "@types/node": "catalog:",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8",
-    "tsup": "^8"
+    "jose": "^6.2.3",
+    "tsup": "^8",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "undici": "6.21.3",
+    "vitest": "catalog:"
   }
 }
