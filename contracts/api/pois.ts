@@ -51,21 +51,23 @@ export type PoiCardQuery = z.infer<typeof PoiCardQuery>;
  * into a {@link BBox}. These coordinates come from the map viewport, never LLM
  * output.
  */
-export const BBoxParam = z.string().transform((value, ctx) => {
-  const parts = value.split(',');
-  const nums = parts.map(Number);
-  if (parts.length !== 4 || nums.some((n) => !Number.isFinite(n))) {
-    ctx.addIssue({ code: 'custom', message: 'expected "minLng,minLat,maxLng,maxLat"' });
-    return z.NEVER;
-  }
-  const [min_lng, min_lat, max_lng, max_lat] = nums;
-  const parsed = BBox.safeParse({ min_lng, min_lat, max_lng, max_lat });
-  if (!parsed.success) {
-    ctx.addIssue({ code: 'custom', message: 'bbox coordinates out of range' });
-    return z.NEVER;
-  }
-  return parsed.data;
-});
+export const BBoxParam = z
+  // Strict shape gate first: exactly four numeric components. Guards against
+  // `Number('') === 0`, which would otherwise let `",,,"` parse to an all-zero box.
+  .string()
+  .regex(
+    /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/,
+    'expected "minLng,minLat,maxLng,maxLat"',
+  )
+  .transform((value, ctx) => {
+    const [min_lng, min_lat, max_lng, max_lat] = value.split(',').map(Number);
+    const parsed = BBox.safeParse({ min_lng, min_lat, max_lng, max_lat });
+    if (!parsed.success) {
+      ctx.addIssue({ code: 'custom', message: 'bbox coordinates out of range' });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
 export type BBoxParam = z.infer<typeof BBoxParam>;
 
 /**

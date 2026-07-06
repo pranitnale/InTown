@@ -21,21 +21,20 @@ export type GeoTravelMode = z.infer<typeof GeoTravelMode>;
  * `"48.8584,2.2945"`). GET params are always strings, so origin/destination
  * arrive flat and are parsed + range-validated here into a {@link Coordinate}.
  */
-export const CoordinateParam = z.string().transform((value, ctx) => {
-  const parts = value.split(',');
-  const lat = Number(parts[0]);
-  const lng = Number(parts[1]);
-  if (parts.length !== 2 || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-    ctx.addIssue({ code: 'custom', message: 'expected "lat,lng"' });
-    return z.NEVER;
-  }
-  const parsed = Coordinate.safeParse({ lat, lng });
-  if (!parsed.success) {
-    ctx.addIssue({ code: 'custom', message: 'lat/lng out of range' });
-    return z.NEVER;
-  }
-  return parsed.data;
-});
+export const CoordinateParam = z
+  // Strict shape gate first: exactly two numeric components. Guards against
+  // `Number('') === 0`, which would otherwise let `","` parse to {lat:0,lng:0}.
+  .string()
+  .regex(/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/, 'expected "lat,lng"')
+  .transform((value, ctx) => {
+    const [lat, lng] = value.split(',').map(Number);
+    const parsed = Coordinate.safeParse({ lat, lng });
+    if (!parsed.success) {
+      ctx.addIssue({ code: 'custom', message: 'lat/lng out of range' });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
 export type CoordinateParam = z.infer<typeof CoordinateParam>;
 
 export const GeoRouteQuery = z.object({

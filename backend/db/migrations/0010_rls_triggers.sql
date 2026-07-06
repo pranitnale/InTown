@@ -45,6 +45,15 @@ $$;
 -- NB: do NOT use `session_replication_role = 'replica'` as an escape hatch — it
 -- disables FK-action triggers too, so the very cascades this design relies on
 -- would silently no-op, leaving orphaned children.
+-- PROJECT CONVENTION (enforced by review, not by this guard): No trigger
+-- function or function invoked via DML may ever perform INSERT-aside writes
+-- (UPDATE/DELETE) against the four append-only tables (facts, events,
+-- poi_geo_observations, plan_revisions) — nested DML runs at trigger depth > 1
+-- and bypasses this guard by design (so that FK ON DELETE cascades from parent
+-- rows can complete). The depth > 1 branch therefore admits ANY nested DML, not
+-- only system FK cascades; the append-only law rests on this convention holding.
+-- Any future migration adding a trigger that writes to these tables must be
+-- reviewed against this rule.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION reject_mutation() RETURNS trigger
 LANGUAGE plpgsql AS $$
