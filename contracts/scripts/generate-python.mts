@@ -35,6 +35,7 @@ import {
   TravelerProfile,
   TasteProfile,
   Consent,
+  AccountExport,
   // trips
   Trip,
   TripCity,
@@ -136,6 +137,7 @@ const ENTRIES: ReadonlyArray<readonly [string, z.ZodType]> = [
   ['TravelerProfile', TravelerProfile],
   ['TasteProfile', TasteProfile],
   ['Consent', Consent],
+  ['AccountExport', AccountExport],
   // trips
   ['Trip', Trip],
   ['TripCity', TripCity],

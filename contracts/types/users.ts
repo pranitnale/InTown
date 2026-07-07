@@ -99,3 +99,18 @@ export const Consent = z.object({
   revoked_at: IsoDateTime.nullable(),
 });
 export type Consent = z.infer<typeof Consent>;
+
+/**
+ * GDPR subject-access export (§16.1). The complete personal record the erasure
+ * endpoint would remove: the user row, the (single) traveler profile, EVERY
+ * taste-profile version (ordered by version), and every consent state row.
+ * Anonymous aggregates (pseudonymous `events`, global `item_stats`) are
+ * deliberately absent — they carry no personal data and survive erasure.
+ */
+export const AccountExport = z.object({
+  user: User,
+  traveler_profile: TravelerProfile.nullable(),
+  taste_profiles: z.array(TasteProfile),
+  consents: z.array(Consent),
+});
+export type AccountExport = z.infer<typeof AccountExport>;

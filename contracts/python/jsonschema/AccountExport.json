@@ -1,0 +1,40 @@
+{
+  "$id": "AccountExport.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "consents": {
+      "items": {
+        "$ref": "Consent.json"
+      },
+      "type": "array"
+    },
+    "taste_profiles": {
+      "items": {
+        "$ref": "TasteProfile.json"
+      },
+      "type": "array"
+    },
+    "traveler_profile": {
+      "anyOf": [
+        {
+          "$ref": "TravelerProfile.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "user": {
+      "$ref": "User.json"
+    }
+  },
+  "required": [
+    "user",
+    "traveler_profile",
+    "taste_profiles",
+    "consents"
+  ],
+  "title": "AccountExport",
+  "type": "object"
+}

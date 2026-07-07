@@ -4,11 +4,15 @@ import { defineRoute } from './route.ts';
 import {
   User,
   TravelerProfile,
+  TasteProfile,
+  AccountExport,
   Consent,
   AgeBand,
   Mobility,
   CurrencyCode,
   ConsentType,
+  BudgetTier,
+  Pace,
 } from '../types/index.ts';
 
 /**
@@ -41,6 +45,24 @@ export const UpdateTravelerProfileBody = z
   })
   .partial();
 export type UpdateTravelerProfileBody = z.infer<typeof UpdateTravelerProfileBody>;
+
+/**
+ * A new taste-profile version (§10). All list fields are required (send the full
+ * desired state); the server assigns the next `version` and never edits an
+ * existing row. `anti_preferences` are soft (down-weight) and `hard_exclusions`
+ * are absolute vetoes — distinct fields with distinct semantics (the museum
+ * problem, §6.2).
+ */
+export const UpdateTasteProfileBody = z.object({
+  /** Ranked interest tags, most-preferred first. */
+  interests: z.array(z.string()),
+  anti_preferences: z.array(z.string()),
+  hard_exclusions: z.array(z.string()),
+  dietary: z.array(z.string()),
+  budget_tier: BudgetTier,
+  pace: Pace,
+});
+export type UpdateTasteProfileBody = z.infer<typeof UpdateTasteProfileBody>;
 
 /** Set/revoke a single consent (consent-or-pay, §16.1). */
 export const SetConsentBody = z.object({
@@ -94,6 +116,35 @@ export const authRoutes = {
     summary: 'Upsert the traveler profile (drives pricing + pacing defaults).',
     body: UpdateTravelerProfileBody,
     response: TravelerProfile,
+  }),
+  'auth.getTasteProfile': defineRoute({
+    method: 'GET',
+    path: '/api/profile/taste',
+    auth: 'user',
+    summary: 'Latest taste-profile version (ranks, anti-preferences, exclusions, dietary, budget, pace).',
+    response: TasteProfile.nullable(),
+  }),
+  'auth.updateTasteProfile': defineRoute({
+    method: 'PUT',
+    path: '/api/profile/taste',
+    auth: 'user',
+    summary: 'Append a new taste-profile version (history is never edited in place).',
+    body: UpdateTasteProfileBody,
+    response: TasteProfile,
+  }),
+  'auth.exportAccount': defineRoute({
+    method: 'GET',
+    path: '/api/account/export',
+    auth: 'user',
+    summary: 'GDPR subject-access export: user, traveler profile, all taste versions, consents.',
+    response: AccountExport,
+  }),
+  'auth.eraseAccount': defineRoute({
+    method: 'DELETE',
+    path: '/api/account',
+    auth: 'user',
+    summary: 'GDPR erasure: delete the user + cascaded personal rows; anonymous aggregates survive.',
+    response: z.object({ erased: z.boolean() }),
   }),
   'auth.getConsents': defineRoute({
     method: 'GET',
