@@ -42,11 +42,11 @@ cd frontend && npm run build && npm run lint && npm run typecheck && npm run tes
 ```
 
 ## Resume checklist
-- [ ] Traveler + taste profile editors + GDPR export/delete UI.
-- [ ] Drag-rank interests + anti-preferences; separate hard-exclusion control.
-- [ ] Museum-problem override UX (shown-despite-low-interest + Remove).
-- [ ] Progressive quiz framework (one-per-screen, endowed progress, real reason).
-- [ ] "Because you said X" chips.
-- [ ] Photo-swipe elicitation (10–15 cards) → soft weights → drag-rank survivors.
-- [ ] Age→pace preset (editable, not a cap).
-- [ ] Contrast + unit tests; Verification commands green.
+- [x] Traveler + taste profile editors + GDPR export/delete UI.
+- [x] Drag-rank interests + anti-preferences; separate hard-exclusion control.
+- [x] Museum-problem override UX (shown-despite-low-interest + Remove).
+- [x] Progressive quiz framework (one-per-screen, endowed progress, real reason).
+- [x] "Because you said X" chips.
+- [x] Photo-swipe elicitation (10–15 cards) → soft weights → drag-rank survivors.
+- [x] Age→pace preset (editable, not a cap).
+- [x] Contrast + unit tests; Verification commands green.
