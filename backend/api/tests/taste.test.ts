@@ -64,7 +64,7 @@ describe('taste profile versioning (AC2, AC3)', () => {
     expect(res.json()).toBeNull();
   });
 
-  it('PUT twice creates version 0 then 1, preserving both rows; GET returns the latest', async () => {
+  it('sequential PUTs create dense monotonic versions 0,1,2, preserving every row; GET returns the latest', async () => {
     const first = await put(bodyV0);
     expect(first.statusCode).toBe(200);
     expect((first.json() as { version: number }).version).toBe(0);
@@ -73,19 +73,25 @@ describe('taste profile versioning (AC2, AC3)', () => {
     expect(second.statusCode).toBe(200);
     expect((second.json() as { version: number }).version).toBe(1);
 
-    // History preserved: both rows still exist (assert via the superuser pool).
+    // A third append advances the version again — the per-user advisory lock
+    // keeps versions dense/monotonic under the serialized MAX+1 path.
+    const third = await put(bodyV0);
+    expect(third.statusCode).toBe(200);
+    expect((third.json() as { version: number }).version).toBe(2);
+
+    // History preserved: all three rows still exist (assert via the superuser pool).
     const rows = await admin.query<{ version: number }>(
       `SELECT version FROM taste_profiles WHERE user_id = $1 ORDER BY version ASC`,
       [userAId],
     );
-    expect(rows.rows.map((r) => r.version)).toEqual([0, 1]);
+    expect(rows.rows.map((r) => r.version)).toEqual([0, 1, 2]);
 
     // GET returns the latest version.
     const get = await ts.app.inject({ method: 'GET', url: '/api/profile/taste', headers: { cookie: COOKIE } });
     const latest = get.json() as { version: number; budget_tier: string; pace: string };
-    expect(latest.version).toBe(1);
-    expect(latest.budget_tier).toBe('comfort');
-    expect(latest.pace).toBe('packed');
+    expect(latest.version).toBe(2);
+    expect(latest.budget_tier).toBe('moderate');
+    expect(latest.pace).toBe('relaxed');
   });
 
   it('stores anti_preferences and hard_exclusions as distinct arrays (soft vs veto)', async () => {

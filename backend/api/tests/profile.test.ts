@@ -13,6 +13,7 @@ describe('profile routes (AC1)', () => {
   const admin = createAdminPool();
   let ts: TestServer;
   let userAId: string;
+  let userBId: string;
 
   beforeAll(() => {
     ts = makeTestServer();
@@ -20,8 +21,9 @@ describe('profile routes (AC1)', () => {
 
   beforeEach(async () => {
     await resetTables(admin);
-    const { a } = await seedTwoUsers(admin);
+    const { a, b } = await seedTwoUsers(admin);
     userAId = a.id;
+    userBId = b.id;
     await admin.query(
       `INSERT INTO sessions (session_token, user_id, expires) VALUES ($1, $2, now() + interval '1 day')`,
       [SESSION_TOKEN, a.id],
@@ -51,6 +53,22 @@ describe('profile routes (AC1)', () => {
     expect(body.display_name).toBe('Alice B.');
     expect(body.handle).toBe('aliceb');
     expect(body.locale).toBeNull();
+  });
+
+  it('PATCH /api/profile with a handle another user holds returns 409, not 500', async () => {
+    // Bob (invisible to Alice under RLS) already holds the handle; the UNIQUE
+    // index on users.handle is enforced across ALL rows, so Alice's UPDATE
+    // raises 23505 → the handler must map it to a 409.
+    await admin.query(`UPDATE users SET handle = $1 WHERE id = $2`, ['taken-handle', userBId]);
+
+    const res = await ts.app.inject({
+      method: 'PATCH',
+      url: '/api/profile',
+      headers: { cookie: COOKIE, 'content-type': 'application/json' },
+      payload: { handle: 'taken-handle' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect((res.json() as { error: string }).error).toBe('conflict');
   });
 
   it('traveler profile: absent → PUT upsert → GET returns it', async () => {

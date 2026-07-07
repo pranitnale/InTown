@@ -2,9 +2,36 @@ import { authRoutes } from '@intown/contracts/api';
 import type { UpdateProfileBody, UpdateTravelerProfileBody, UpdateTasteProfileBody } from '@intown/contracts/api';
 import type { User, TravelerProfile, TasteProfile } from '@intown/contracts/types';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { PoolClient } from 'pg';
 import type { Pools } from '../db/pool.ts';
 import { registerRoute, type RouteHandler } from '../http/router.ts';
 import { withUserContext } from '../auth/session.ts';
+
+/** Postgres unique-violation SQLSTATE — a duplicate key on a UNIQUE constraint. */
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: unknown }).code === PG_UNIQUE_VIOLATION
+  );
+}
+
+function conflict(reply: FastifyReply, detail: string): FastifyReply {
+  return reply.code(409).send({ error: 'conflict', detail });
+}
+
+/**
+ * Serialize concurrent same-user writes with a transaction-scoped advisory lock
+ * keyed on the caller's uuid. The lock is auto-released at COMMIT/ROLLBACK, and
+ * different users hash to different keys so they never contend. Taken before a
+ * read-modify-write (traveler upsert) or a versioned append (taste insert) so
+ * two concurrent same-user PUTs run one-after-another instead of racing.
+ */
+async function lockUser(client: PoolClient): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock(hashtext(current_user_id()::text))');
+}
 
 /**
  * Traveler + taste profile read/write path (P04, §6.1–6.2).
@@ -60,7 +87,7 @@ export function getProfileHandler(pools: Pools): RouteHandler {
 }
 
 export function updateProfileHandler(pools: Pools): RouteHandler {
-  return async (req) => {
+  return async (req, reply) => {
     const userId = req.user!.id;
     const body = req.body as UpdateProfileBody;
 
@@ -83,13 +110,23 @@ export function updateProfileHandler(pools: Pools): RouteHandler {
         );
         return toUser(rows[0]!);
       }
-      const { rows } = await client.query<UserRow>(
-        `UPDATE users SET ${sets.join(', ')}
-          WHERE id = current_user_id()
-        RETURNING ${USER_COLUMNS}`,
-        values,
-      );
-      return toUser(rows[0]!);
+      try {
+        const { rows } = await client.query<UserRow>(
+          `UPDATE users SET ${sets.join(', ')}
+            WHERE id = current_user_id()
+          RETURNING ${USER_COLUMNS}`,
+          values,
+        );
+        return toUser(rows[0]!);
+      } catch (err) {
+        // `users.handle` and `users.email` are UNIQUE (0003): setting one to a
+        // value another user already holds raises 23505. Surface that as a 409
+        // conflict rather than letting it bubble up as an unhandled 500.
+        if (isUniqueViolation(err)) {
+          return conflict(reply, 'that handle or email is already taken');
+        }
+        throw err;
+      }
     });
   };
 }
@@ -147,12 +184,19 @@ export function getTravelerProfileHandler(pools: Pools): RouteHandler {
  * txn): an absent key keeps its current value on update. Creating a profile for
  * the first time requires every NOT NULL field (age_band, mobility, eu_residency,
  * student, currency) — a partial create is a 400, not a NOT NULL crash.
+ *
+ * The read-modify-write is serialized per user via a transaction-scoped advisory
+ * lock (`lockUser`) taken before the SELECT: without it, two concurrent same-user
+ * partial PUTs at READ COMMITTED could both read the same pre-image and the
+ * second write would clobber the first's fields (last-write-wins). The lock
+ * makes concurrent same-user merges run sequentially, so no field is lost.
  */
 export function updateTravelerProfileHandler(pools: Pools): RouteHandler {
   return async (req, reply) => {
     const userId = req.user!.id;
     const body = req.body as UpdateTravelerProfileBody;
     return withUserContext(pools.appPool, userId, async (client) => {
+      await lockUser(client);
       const existing = await client.query<TravelerRow>(
         `SELECT ${TRAVELER_COLUMNS} FROM traveler_profiles WHERE user_id = current_user_id()`,
       );
@@ -262,17 +306,22 @@ export function getTasteProfileHandler(pools: Pools): RouteHandler {
 
 /**
  * Append a new taste-profile version. The next version is
- * `COALESCE(MAX(version), -1) + 1` computed in the same INSERT ... SELECT, so
- * the whole thing is atomic within the `withUserContext` transaction and prior
- * versions are preserved (history is never edited in place). `anti_preferences`
- * (soft down-weight) and `hard_exclusions` (absolute veto) are stored as
- * distinct arrays — the museum-problem distinction (§6.2).
+ * `COALESCE(MAX(version), -1) + 1`. That expression is statement-atomic but NOT
+ * concurrency-safe on its own: two same-user PUTs at READ COMMITTED can each read
+ * the same MAX and compute the same next version, and the loser then trips
+ * `UNIQUE(user_id, version)` with a 23505. A per-user transaction-scoped advisory
+ * lock (`lockUser`) taken before the insert serializes concurrent same-user
+ * appends, so versions are dense and monotonic (0,1,2,…) with no duplicate or
+ * skipped number. Prior versions are preserved (history is never edited in
+ * place). `anti_preferences` (soft down-weight) and `hard_exclusions` (absolute
+ * veto) are stored as distinct arrays — the museum-problem distinction (§6.2).
  */
 export function updateTasteProfileHandler(pools: Pools): RouteHandler {
   return async (req) => {
     const userId = req.user!.id;
     const body = req.body as UpdateTasteProfileBody;
     return withUserContext(pools.appPool, userId, async (client) => {
+      await lockUser(client);
       const { rows } = await client.query<TasteRow>(
         `INSERT INTO taste_profiles
            (user_id, version, interests, anti_preferences, hard_exclusions, dietary, budget_tier, pace)

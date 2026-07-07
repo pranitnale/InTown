@@ -24,9 +24,13 @@ import {
 /**
  * GDPR data-subject rights (P04, §16.1): export and erasure.
  *
- * Both run through `withUserContext` on the RLS-bound app pool, so a caller can
- * only ever export or erase THEIR OWN account — the `*_self` policies (0011)
- * scope every statement to `current_user_id()`.
+ * Profile-domain reads and the erasure delete run through `withUserContext` on
+ * the RLS-bound app pool, so a caller can only ever touch THEIR OWN account —
+ * the `*_self` policies (0011) scope every statement to `current_user_id()`.
+ * The export additionally reads auth-infra metadata (linked `accounts` and
+ * `sessions`) via the BYPASSRLS `authPool`, because `intown_app` holds no grant
+ * on those auth tables (0012); those reads are explicitly scoped to the caller
+ * with `WHERE user_id = $1` and select only non-secret columns.
  *
  * Erasure deletes the `users` row; the ON DELETE CASCADE foreign keys (0003,
  * 0008, 0012) then remove the traveler profile, every taste version, consents,
@@ -35,10 +39,23 @@ import {
  * delete simply orphans the pseudonym, so anonymous aggregates survive.
  */
 
+interface AccountLinkRow {
+  provider: string;
+  provider_account_id: string;
+  type: string;
+}
+
+interface SessionMetaRow {
+  expires: Date;
+}
+
 export function exportAccountHandler(pools: Pools): RouteHandler {
   return async (req) => {
     const userId = req.user!.id;
-    return withUserContext(pools.appPool, userId, async (client): Promise<AccountExport> => {
+
+    // Profile-domain data (RLS-scoped app pool): the queries use
+    // `current_user_id()` so the *_self policies restrict them to the caller.
+    const profile = await withUserContext(pools.appPool, userId, async (client) => {
       const users = await client.query<UserRow>(
         `SELECT ${USER_COLUMNS} FROM users WHERE id = current_user_id()`,
       );
@@ -55,7 +72,6 @@ export function exportAccountHandler(pools: Pools): RouteHandler {
           WHERE user_id = current_user_id()
           ORDER BY granted_at ASC`,
       );
-
       return {
         user: toUser(users.rows[0]!),
         traveler_profile: traveler.rows[0] ? toTravelerProfile(traveler.rows[0]) : null,
@@ -63,6 +79,37 @@ export function exportAccountHandler(pools: Pools): RouteHandler {
         consents: consents.rows.map(toConsent),
       };
     });
+
+    // Auth-domain metadata (accounts + sessions): `intown_app` has NO grant on
+    // these auth tables (0012 grants them to `intown_auth`), so they are read
+    // through the BYPASSRLS `authPool` with an explicit `WHERE user_id = $1`
+    // scoped to the caller. Only non-secret columns are selected — never the
+    // token columns (`access_token`, `refresh_token`, `id_token`, …) or the
+    // `session_token` value. This is the intended use of the auth pool for auth
+    // tables, not an RLS bypass of profile data.
+    const accounts = await pools.authPool.query<AccountLinkRow>(
+      `SELECT provider, provider_account_id, type FROM accounts
+        WHERE user_id = $1
+        ORDER BY provider ASC, provider_account_id ASC`,
+      [userId],
+    );
+    const sessions = await pools.authPool.query<SessionMetaRow>(
+      `SELECT expires FROM sessions
+        WHERE user_id = $1
+        ORDER BY expires ASC`,
+      [userId],
+    );
+
+    const out: AccountExport = {
+      ...profile,
+      accounts: accounts.rows.map((r) => ({
+        provider: r.provider,
+        provider_account_id: r.provider_account_id,
+        type: r.type,
+      })),
+      sessions: sessions.rows.map((r) => ({ expires: r.expires.toISOString() })),
+    };
+    return out;
   };
 }
 

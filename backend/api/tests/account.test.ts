@@ -100,6 +100,56 @@ describe('GDPR export + erasure (AC4)', () => {
     expect(dump.consents[0]!.consent_type).toBe('personalization_learning');
   });
 
+  it('export includes non-secret account + session metadata and leaks no token columns', async () => {
+    await seedPersonalData();
+
+    // Seed a linked OAuth account for the authed user via the superuser pool.
+    // Token columns (secrets) are set to non-null dummy values so the "no secret
+    // keys" assertion below proves the handler excludes them even when present.
+    await admin.query(
+      `INSERT INTO accounts
+         (user_id, type, provider, provider_account_id,
+          access_token, refresh_token, id_token, token_type, scope, session_state)
+       VALUES ($1, 'oauth', 'google', 'google-sub-12345',
+          'secret-access-token', 'secret-refresh-token', 'secret-id-token',
+          'Bearer', 'openid email', 'secret-session-state')`,
+      [userAId],
+    );
+
+    const res = await ts.app.inject({ method: 'GET', url: '/api/account/export', headers: { cookie: COOKIE } });
+    expect(res.statusCode).toBe(200);
+    const dump = res.json() as {
+      accounts: Array<{ provider: string; provider_account_id: string; type: string }>;
+      sessions: Array<{ expires: string }>;
+    };
+
+    // Linked account metadata (non-secret columns only).
+    expect(dump.accounts).toContainEqual({
+      provider: 'google',
+      provider_account_id: 'google-sub-12345',
+      type: 'oauth',
+    });
+
+    // Session metadata: the beforeEach-seeded session, exposing only its expiry
+    // as an ISO string (never the `session_token`).
+    expect(dump.sessions.length).toBeGreaterThanOrEqual(1);
+    const expires = dump.sessions[0]!.expires;
+    expect(typeof expires).toBe('string');
+    expect(new Date(expires).toISOString()).toBe(expires);
+
+    // No secret column ever appears anywhere in the serialized response.
+    const serialized = JSON.stringify(dump);
+    expect(serialized).not.toContain('session_token');
+    expect(serialized).not.toContain('access_token');
+    expect(serialized).not.toContain('refresh_token');
+    expect(serialized).not.toContain('id_token');
+    // And none of the seeded secret VALUES leak either.
+    expect(serialized).not.toContain('secret-access-token');
+    expect(serialized).not.toContain('secret-refresh-token');
+    expect(serialized).not.toContain('secret-id-token');
+    expect(serialized).not.toContain('secret-session-state');
+  });
+
   it('erasure deletes the user + cascaded personal rows, but an anonymous event survives', async () => {
     await seedPersonalData();
 
