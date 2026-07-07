@@ -14,7 +14,7 @@ import { withUserContext } from './session.ts';
  * `consents_self` policy scopes reads/writes to the caller.
  */
 
-interface ConsentRow {
+export interface ConsentRow {
   id: string;
   user_id: string;
   consent_type: Consent['consent_type'];
@@ -24,7 +24,7 @@ interface ConsentRow {
   revoked_at: Date | null;
 }
 
-function toConsent(row: ConsentRow): Consent {
+export function toConsent(row: ConsentRow): Consent {
   return {
     id: row.id,
     user_id: row.user_id,
@@ -36,7 +36,7 @@ function toConsent(row: ConsentRow): Consent {
   };
 }
 
-const CONSENT_COLUMNS =
+export const CONSENT_COLUMNS =
   'id, user_id, consent_type, granted, policy_version, granted_at, revoked_at';
 
 export function getConsentsHandler(pools: Pools): RouteHandler {
