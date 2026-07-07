@@ -40,9 +40,20 @@ cd backend && npm run test && npm run lint && npm run typecheck
 ```
 
 ## Resume checklist
-- [ ] Traveler profile model + API (age band, residency, student, mobility, languages, currency).
-- [ ] Taste profile model (versioned) with soft ranks/anti-prefs + hard exclusions + dietary + budget + pace.
-- [ ] GDPR export endpoint.
-- [ ] GDPR erasure endpoint (rows deleted, aggregates survive).
-- [ ] RLS + ownership on all routes.
-- [ ] Tests: versioning, export, erasure, soft-vs-hard distinction; Verification commands green.
+- [x] Traveler profile model + API (age band, residency, student, mobility, languages, currency).
+- [x] Taste profile model (versioned) with soft ranks/anti-prefs + hard exclusions + dietary + budget + pace.
+- [x] GDPR export endpoint.
+- [x] GDPR erasure endpoint (rows deleted, aggregates survive).
+- [x] RLS + ownership on all routes.
+- [x] Tests: versioning, export, erasure, soft-vs-hard distinction; Verification commands green.
+
+## Implementation notes
+- No new migration: `intown_app` already holds `DELETE` on `users` (0011 grants),
+  and FK `ON DELETE CASCADE` runs at trigger depth > 1 so the append-only guard
+  (0010) permits the cascade. `events` is FK-free (0008) and survives erasure.
+- Contracts added: `auth.getTasteProfile`, `auth.updateTasteProfile`,
+  `auth.exportAccount`, `auth.eraseAccount`; new `AccountExport` type.
+- Handlers: `backend/api/src/profile/routes.ts`, `backend/api/src/account/routes.ts`.
+- Traveler PUT is a read-modify-write upsert: partial bodies merge over the
+  existing row; a partial body with no existing row is a 400 (cannot create a
+  partial NOT-NULL profile).

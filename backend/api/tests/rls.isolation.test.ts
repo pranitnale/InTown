@@ -63,4 +63,49 @@ describe('RLS isolation (AC4)', () => {
     expect(Number(allUsers.rows[0]!.count)).toBe(2);
     expect(Number(allConsents.rows[0]!.count)).toBe(1);
   });
+
+  it("P04: user A cannot read or write user B's traveler/taste rows", async () => {
+    const { a, b } = await seedTwoUsers(admin);
+    // Seed B's traveler + taste profiles (superuser bypasses RLS).
+    await admin.query(
+      `INSERT INTO traveler_profiles (user_id, age_band, mobility, eu_residency, student, currency)
+       VALUES ($1, '26-44', 'full', true, false, 'EUR')`,
+      [b.id],
+    );
+    await admin.query(
+      `INSERT INTO taste_profiles (user_id, version, budget_tier, pace)
+       VALUES ($1, 0, 'moderate', 'relaxed')`,
+      [b.id],
+    );
+
+    const result = await withUserContext(pools.appPool, a.id, async (client: pg.PoolClient) => {
+      const seesTraveler = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM traveler_profiles',
+      );
+      const seesTaste = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM taste_profiles',
+      );
+      // A write targeting B's row hits 0 rows: B's rows are invisible under RLS.
+      const updB = await client.query(
+        `UPDATE traveler_profiles SET currency = 'USD' WHERE user_id = $1`,
+        [b.id],
+      );
+      return {
+        visibleTraveler: Number(seesTraveler.rows[0]!.count),
+        visibleTaste: Number(seesTaste.rows[0]!.count),
+        updatedRows: updB.rowCount,
+      };
+    });
+
+    expect(result.visibleTraveler).toBe(0); // B's traveler profile hidden
+    expect(result.visibleTaste).toBe(0); // B's taste profile hidden
+    expect(result.updatedRows).toBe(0); // cannot mutate B's row
+
+    // Tripwire: B's rows are untouched (superuser confirms currency unchanged).
+    const bRow = await admin.query<{ currency: string }>(
+      'SELECT currency FROM traveler_profiles WHERE user_id = $1',
+      [b.id],
+    );
+    expect(bRow.rows[0]!.currency).toBe('EUR');
+  });
 });
