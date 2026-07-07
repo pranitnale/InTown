@@ -1,15 +1,15 @@
 import { createBrowserRouter } from 'react-router';
 import { AppLayout } from '../app-shell/AppLayout.tsx';
 import { RequireAuth } from './RequireAuth.tsx';
+import { OnboardingRoute } from '../onboarding/index.ts';
+import { SettingsRoute } from '../settings/index.ts';
 import {
   AuthScreen,
   HomeScreen,
   JoinScreen,
   ModerationScreen,
   OfflineScreen,
-  OnboardingScreen,
   ReviewsPolicyScreen,
-  SettingsScreen,
   TripCityBriefScreen,
   TripCurateScreen,
   TripDetailScreen,
@@ -42,7 +42,7 @@ export const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           { index: true, element: <HomeScreen /> }, // '/'
-          { path: 'onboarding', element: <OnboardingScreen /> },
+          { path: 'onboarding', element: <OnboardingRoute /> },
           { path: 'trips', element: <TripsScreen /> },
           { path: 'trips/new', element: <TripNewScreen /> },
           { path: 'join/:code', element: <JoinScreen /> },
@@ -50,7 +50,7 @@ export const router = createBrowserRouter([
           { path: 'trips/:id/curate', element: <TripCurateScreen /> },
           { path: 'trips/:id/city-brief', element: <TripCityBriefScreen /> },
           { path: 'trips/:id/generating', element: <TripGeneratingScreen /> },
-          { path: 'settings', element: <SettingsScreen /> },
+          { path: 'settings', element: <SettingsRoute /> },
         ],
       },
     ],
