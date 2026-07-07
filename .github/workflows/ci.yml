@@ -14,9 +14,29 @@ jobs:
   #     package's vitest suite + the Python fixture-contract suite.
   #     `pnpm -w test` shells into scripts/python-tests.sh, which provisions the
   #     repo-root .venv itself, so we only need a Python interpreter on PATH.
+  #     The @intown/api vitest suite drives a live Postgres (its globalSetup runs
+  #     the migration chain, which creates the intown_auth/intown_app roles the
+  #     app/auth pools connect as), so this job provisions the same PostGIS
+  #     service + DATABASE_URL as the `migrations` job below.
   test:
     name: test (pnpm -w test)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: intown
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d intown"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/intown
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
