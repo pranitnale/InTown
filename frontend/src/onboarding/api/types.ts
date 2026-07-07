@@ -38,3 +38,19 @@ export class ProfileSessionExpiredError extends Error {
     this.name = 'ProfileSessionExpiredError';
   }
 }
+
+/**
+ * Thrown when the API rejects the body as invalid (400). The backend rejects a
+ * FIRST-TIME traveler create that omits any NOT NULL field
+ * (`age_band, mobility, eu_residency, student, currency`) with a 400 — a partial
+ * create is never silently completed with invented defaults
+ * (`backend/api/src/profile/routes.ts` `badRequestMissingFields`). Both the mock
+ * and the live client raise this so the create-vs-update contract is enforced
+ * identically on either transport.
+ */
+export class ProfileBadRequestError extends Error {
+  constructor(message = 'Bad request') {
+    super(message);
+    this.name = 'ProfileBadRequestError';
+  }
+}

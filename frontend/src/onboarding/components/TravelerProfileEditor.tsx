@@ -9,6 +9,7 @@ import {
 import type { UpdateTravelerProfileBody } from '@intown/contracts/api';
 import { Button, Toggle, cn, FOCUS_RING } from '../../design-system/index.ts';
 import { addUnique, removeValue } from '../logic/dragRank.ts';
+import { runSave } from '../logic/saveAction.ts';
 
 export interface TravelerProfileEditorProps {
   value: TravelerProfile | null;
@@ -53,26 +54,30 @@ export function TravelerProfileEditor({
   const [currency, setCurrency] = useState(value?.currency ?? 'EUR');
   const [langDraft, setLangDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function pickAge(band: AgeBand) {
     setAgeBand(band);
     onAgeBandChange?.(band);
   }
 
-  async function save() {
-    setBusy(true);
-    try {
-      await onSave({
-        age_band: ageBand,
-        mobility,
-        eu_residency: euResidency,
-        student,
-        languages,
-        currency: currency.toUpperCase(),
-      });
-    } finally {
-      setBusy(false);
-    }
+  // A rejected save (500, or a 401 ProfileSessionExpiredError) must not leave the
+  // button un-busied with no feedback — `runSave` catches it and surfaces the
+  // message via the role="alert" below, mirroring GdprControls' convention.
+  function save() {
+    return runSave(
+      () =>
+        onSave({
+          age_band: ageBand,
+          mobility,
+          eu_residency: euResidency,
+          student,
+          languages,
+          currency: currency.toUpperCase(),
+        }),
+      { setBusy, setError },
+      'Could not save your traveler profile',
+    );
   }
 
   return (
@@ -201,7 +206,12 @@ export function TravelerProfileEditor({
         />
       </label>
 
-      <div>
+      <div className="flex flex-col gap-2">
+        {error ? (
+          <p role="alert" className="text-sm text-error">
+            {error}
+          </p>
+        ) : null}
         <Button onClick={() => void save()} disabled={busy}>
           {busy ? 'Saving…' : 'Save traveler profile'}
         </Button>

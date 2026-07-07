@@ -6,7 +6,7 @@ import {
   type UpdateTasteProfileBody,
 } from '@intown/contracts/api';
 import type { ProfileApi } from './types.ts';
-import { ProfileSessionExpiredError } from './types.ts';
+import { ProfileSessionExpiredError, ProfileBadRequestError } from './types.ts';
 
 export interface ProfileClientOptions {
   /** Base origin for the API. Empty = same origin. */
@@ -31,6 +31,9 @@ export function createProfileClient({ baseUrl = '', fetchImpl }: ProfileClientOp
 
   function guard(res: Response, label: string): void {
     if (res.status === 401) throw new ProfileSessionExpiredError();
+    // A 400 is a rejected body (e.g. a partial first-time traveler create): the
+    // caller must fix the body, not retry — surface it as a distinct error.
+    if (res.status === 400) throw new ProfileBadRequestError(`${label} rejected: 400`);
     if (!res.ok) throw new Error(`${label} failed: ${res.status}`);
   }
 

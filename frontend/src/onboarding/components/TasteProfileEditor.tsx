@@ -15,6 +15,7 @@ import { HardExclusionControl } from './HardExclusionControl.tsx';
 import { BecauseYouSaidChips } from './BecauseYouSaidChips.tsx';
 import { DefiningSightOverride } from './DefiningSightOverride.tsx';
 import { pacePresetFor, pacePresetReason } from '../logic/pace.ts';
+import { runSave } from '../logic/saveAction.ts';
 import { addUnique, removeValue } from '../logic/dragRank.ts';
 import { interestLabel } from '../logic/interests.ts';
 import type { DefiningSight, TasteRanking } from '../logic/override.ts';
@@ -71,6 +72,7 @@ export function TasteProfileEditor({
   );
   const [paceTouched, setPaceTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // AC #7: age band pre-selects an editable pace preset. If the user hasn't
   // explicitly changed the pace, follow the age-band preset; once touched, the
@@ -89,20 +91,23 @@ export function TasteProfileEditor({
     setHardExclusions(next.hard_exclusions);
   }
 
-  async function save() {
-    setBusy(true);
-    try {
-      await onSave({
-        interests,
-        anti_preferences: antiPrefs,
-        hard_exclusions: hardExclusions,
-        dietary,
-        budget_tier: budget,
-        pace,
-      });
-    } finally {
-      setBusy(false);
-    }
+  // A rejected save (500, or a 401 ProfileSessionExpiredError) must not leave the
+  // button un-busied with no feedback — `runSave` catches it and surfaces the
+  // message via the role="alert" below, mirroring GdprControls' convention.
+  function save() {
+    return runSave(
+      () =>
+        onSave({
+          interests,
+          anti_preferences: antiPrefs,
+          hard_exclusions: hardExclusions,
+          dietary,
+          budget_tier: budget,
+          pace,
+        }),
+      { setBusy, setError },
+      'Could not save your taste profile',
+    );
   }
 
   return (
@@ -227,7 +232,12 @@ export function TasteProfileEditor({
         ) : null}
       </fieldset>
 
-      <div>
+      <div className="flex flex-col gap-2">
+        {error ? (
+          <p role="alert" className="text-sm text-error">
+            {error}
+          </p>
+        ) : null}
         <Button onClick={() => void save()} disabled={busy}>
           {busy ? 'Saving…' : 'Save taste profile'}
         </Button>

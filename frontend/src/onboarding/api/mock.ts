@@ -14,6 +14,7 @@ import type {
 } from '@intown/contracts/api';
 import fixture from '@intown/contracts/fixtures/profiles-trip-members.json';
 import type { ProfileApi } from './types.ts';
+import { ProfileBadRequestError } from './types.ts';
 
 export interface MockProfileOptions {
   /** Which fixture user to seed from (0 = Mara, has full traveler + taste). */
@@ -82,17 +83,33 @@ export function createMockProfileApi(opts: MockProfileOptions = {}): ProfileApi 
     },
 
     async updateTravelerProfile(body: UpdateTravelerProfileBody): Promise<TravelerProfile> {
+      // Replicate the backend contract (`backend/api/src/profile/routes.ts`): a
+      // FIRST-TIME create must carry every NOT NULL field. A partial create is a
+      // 400 — the mock must NOT invent defaults, or it would hide the divergence
+      // from the live client. `languages` is the only mergeable field the backend
+      // defaults ([]), so it is not required on create. An UPDATE (existing row)
+      // may be partial: absent keys keep their current value.
+      if (traveler === null) {
+        if (
+          body.age_band === undefined ||
+          body.mobility === undefined ||
+          body.eu_residency === undefined ||
+          body.student === undefined ||
+          body.currency === undefined
+        ) {
+          throw new ProfileBadRequestError(
+            'creating a traveler profile requires age_band, mobility, eu_residency, student, and currency',
+          );
+        }
+      }
+      // Only id/user_id/created_at/languages are carried across a merge; every
+      // NOT NULL field is either already present on `traveler` (update) or
+      // guaranteed present in `body` (create, checked above).
       const base = traveler ?? {
         id: '17000000-0000-4000-8000-0000000000ff',
         user_id: user.id,
-        age_band: '26-44' as const,
-        mobility: 'full' as const,
-        eu_residency: false,
-        student: false,
-        languages: [],
-        currency: 'EUR',
+        languages: [] as string[],
         created_at: NOW,
-        updated_at: NOW,
       };
       traveler = TravelerProfile.parse({
         ...base,

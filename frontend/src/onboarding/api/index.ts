@@ -3,7 +3,7 @@ import { createMockProfileApi, type MockProfileOptions } from './mock.ts';
 import type { ProfileApi } from './types.ts';
 
 export type { ProfileApi } from './types.ts';
-export { ProfileSessionExpiredError } from './types.ts';
+export { ProfileSessionExpiredError, ProfileBadRequestError } from './types.ts';
 export { createProfileClient } from './client.ts';
 export type { ProfileClientOptions } from './client.ts';
 export { createMockProfileApi } from './mock.ts';

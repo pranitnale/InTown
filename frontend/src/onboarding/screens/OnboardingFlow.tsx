@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AGE_BAND_VALUES, type AgeBand, type BudgetTier } from '@intown/contracts/types';
+import type { UpdateTravelerProfileBody } from '@intown/contracts/api';
 import { Button, Card } from '../../design-system/index.ts';
 import { PhotoSwipeDeck } from '../components/PhotoSwipeDeck.tsx';
 import { QuizFramework, type QuizChoiceQuestion } from '../components/QuizFramework.tsx';
@@ -17,6 +18,22 @@ type Stage = 'intro' | 'swipe' | 'quiz' | 'rank' | 'done';
 const ENDOWED: EndowedStep = {
   label: 'Account created',
   reason: 'You already created your account — that counts as step one.',
+};
+
+/**
+ * Sensible non-age defaults for the FIRST-TIME traveler create. Onboarding only
+ * collects the age band here, but the backend rejects a partial create (it needs
+ * every NOT NULL field: age_band, mobility, eu_residency, student, currency —
+ * `backend/api/src/profile/routes.ts`). So a first create sends a full valid body
+ * with these defaults; the user tunes them later in Settings. An update of an
+ * existing profile stays partial (just the age band).
+ */
+const TRAVELER_CREATE_DEFAULTS: Omit<UpdateTravelerProfileBody, 'age_band'> = {
+  mobility: 'full',
+  eu_residency: false,
+  student: false,
+  languages: [],
+  currency: 'EUR',
 };
 
 const QUIZ_QUESTIONS: readonly QuizChoiceQuestion[] = [
@@ -51,19 +68,42 @@ export function OnboardingFlow() {
   const [interests, setInterests] = useState<string[]>([]);
   const [ageBand, setAgeBand] = useState<AgeBand | undefined>(undefined);
   const [budget, setBudget] = useState<BudgetTier | undefined>(undefined);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function onSwipeDone(weights: WeightMap) {
     setInterests(weightsToInterests(weights));
     setStage('quiz');
   }
 
+  /**
+   * Persist the traveler age band (drives pricing + pace defaults). On a
+   * first-time create there is no traveler row yet, so a partial body would 400
+   * against the live backend — send a full valid body with sensible defaults. On
+   * an update of an existing profile a partial body (just the age band) is fine.
+   * Errors surface as an alert rather than being swallowed as a fire-and-forget.
+   */
+  async function persistAgeBand(band: AgeBand) {
+    const existing = store.getState().traveler;
+    const body: UpdateTravelerProfileBody = existing
+      ? { age_band: band }
+      : { ...TRAVELER_CREATE_DEFAULTS, age_band: band };
+    try {
+      await store.getState().saveTraveler(body);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save your age band');
+    }
+  }
+
   function onQuizDone(answers: Record<string, string>) {
     const band = answers['age_band'];
-    if (band && (AGE_BAND_VALUES as readonly string[]).includes(band)) setAgeBand(band as AgeBand);
+    const validBand = band && (AGE_BAND_VALUES as readonly string[]).includes(band);
+    if (validBand) setAgeBand(band as AgeBand);
     const b = answers['budget'];
     if (b) setBudget(b as BudgetTier);
-    // Persist the traveler age band now (drives pricing + pace defaults).
-    if (band) void store.getState().saveTraveler({ age_band: band as AgeBand });
+    if (validBand) {
+      setSaveError(null);
+      void persistAgeBand(band as AgeBand);
+    }
     setStage('rank');
   }
 
@@ -109,13 +149,25 @@ export function OnboardingFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stage-driven view; deps are stable setters/store
   }, [stage, interests, ageBand, budget]);
 
-  return <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">{content}</div>;
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+      {saveError ? (
+        <p role="alert" className="text-sm text-error">
+          {saveError}
+        </p>
+      ) : null}
+      {content}
+    </div>
+  );
 }
 
 /**
  * Mountable route: wires a {@link ProfileProvider} around {@link OnboardingFlow}.
- * Uses the fixture-backed mock until P04's live client is merged (mirrors how P03
- * mounts auth on a mock until P02). A fresh onboarding starts with no saved
+ * Uses the fixture-backed mock intentionally: P04's live client is already
+ * merged, but wiring it here needs P03's SessionProvider/auth integration (the
+ * live client relies on the session-bound credentials), which is out of P05
+ * scope. The flip to the live client is deferred to that auth-integration work
+ * (P03 session mount), NOT gated on P04. A fresh onboarding starts with no saved
  * taste/traveler profile.
  */
 export function OnboardingRoute() {

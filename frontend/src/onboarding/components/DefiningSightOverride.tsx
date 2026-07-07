@@ -5,6 +5,7 @@ import {
   type DefiningSight,
   type TasteRanking,
 } from '../logic/override.ts';
+import { interestLabel } from '../logic/interests.ts';
 
 export interface DefiningSightOverrideProps {
   taste: TasteRanking;
@@ -25,6 +26,12 @@ export function DefiningSightOverride({ taste, sight, onRemove, className }: Def
   const decision = overrideDecision(taste, sight);
   if (!decision.show) return null;
 
+  // Remove is not local to this sight: it promotes the whole tag to an absolute
+  // hard exclusion (§6.2), so EVERY item in that category is hidden everywhere.
+  // State that consequence plainly — nothing is silently dropped (AC #3).
+  const category = interestLabel(sight.interestTag).toLowerCase();
+  const consequence = `Removing hides all ${category} everywhere — you can undo this under Never show me.`;
+
   return (
     <div
       role="note"
@@ -42,7 +49,8 @@ export function DefiningSightOverride({ taste, sight, onRemove, className }: Def
           <p className="text-sm text-text-secondary">{decision.explanation}</p>
         </div>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-text-tertiary">{consequence}</p>
         <Button size="sm" variant="secondary" onClick={() => onRemove(applyRemove(taste, sight))}>
           Remove
         </Button>

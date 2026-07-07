@@ -85,7 +85,11 @@ export function SettingsScreenInner() {
 
 /**
  * Mountable route: wires a fixture-backed {@link ProfileProvider} around the
- * settings screen. Flips to the live P04 client at merge (mirrors P03).
+ * settings screen. The mock is intentional for P05: the live P04 client is
+ * already merged, but wiring it needs P03's SessionProvider/auth integration
+ * (the live client relies on session-bound credentials), which is out of P05
+ * scope. The flip to the live client is deferred to that auth-integration work
+ * (P03 session mount), NOT gated on P04.
  */
 export function SettingsRoute() {
   const api = useMemo(() => createProfileApi({ mock: true }), []);
