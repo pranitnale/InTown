@@ -24,10 +24,12 @@ function conflict(reply: FastifyReply, detail: string): FastifyReply {
 
 /**
  * Serialize concurrent same-user writes with a transaction-scoped advisory lock
- * keyed on the caller's uuid. The lock is auto-released at COMMIT/ROLLBACK, and
- * different users hash to different keys so they never contend. Taken before a
- * read-modify-write (traveler upsert) or a versioned append (taste insert) so
- * two concurrent same-user PUTs run one-after-another instead of racing.
+ * keyed on the caller's uuid. The lock is auto-released at COMMIT/ROLLBACK. Taken
+ * before a read-modify-write (traveler upsert) or a versioned append (taste
+ * insert) so two concurrent same-user PUTs run one-after-another instead of
+ * racing. `hashtext` is a 32-bit hash, so two different users can occasionally
+ * collide on the same lock key — harmless: at worst they briefly serialize, never
+ * incorrectness, since each still writes only its own `current_user_id()` rows.
  */
 async function lockUser(client: PoolClient): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock(hashtext(current_user_id()::text))');
@@ -119,11 +121,12 @@ export function updateProfileHandler(pools: Pools): RouteHandler {
         );
         return toUser(rows[0]!);
       } catch (err) {
-        // `users.handle` and `users.email` are UNIQUE (0003): setting one to a
-        // value another user already holds raises 23505. Surface that as a 409
+        // `users.handle` is UNIQUE (0003) and is the only unique column this
+        // route can set (UpdateProfileBody has no email field): assigning a
+        // handle another user already holds raises 23505. Surface that as a 409
         // conflict rather than letting it bubble up as an unhandled 500.
         if (isUniqueViolation(err)) {
-          return conflict(reply, 'that handle or email is already taken');
+          return conflict(reply, 'that handle is already taken');
         }
         throw err;
       }
