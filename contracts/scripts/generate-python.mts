@@ -35,6 +35,8 @@ import {
   TravelerProfile,
   TasteProfile,
   Consent,
+  AccountLink,
+  SessionMeta,
   AccountExport,
   // trips
   Trip,
@@ -137,6 +139,8 @@ const ENTRIES: ReadonlyArray<readonly [string, z.ZodType]> = [
   ['TravelerProfile', TravelerProfile],
   ['TasteProfile', TasteProfile],
   ['Consent', Consent],
+  ['AccountLink', AccountLink],
+  ['SessionMeta', SessionMeta],
   ['AccountExport', AccountExport],
   // trips
   ['Trip', Trip],

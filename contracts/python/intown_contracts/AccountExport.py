@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+from .AccountLink import AccountLink
 from .Consent import Consent
+from .SessionMeta import SessionMeta
 from .TasteProfile import TasteProfile
 from .TravelerProfile import TravelerProfile
 from .User import User
@@ -15,7 +17,9 @@ class AccountExport(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    accounts: list[AccountLink]
     consents: list[Consent]
+    sessions: list[SessionMeta]
     taste_profiles: list[TasteProfile]
     traveler_profile: TravelerProfile | None
     user: User

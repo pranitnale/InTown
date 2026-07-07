@@ -3,9 +3,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "accounts": {
+      "items": {
+        "$ref": "AccountLink.json"
+      },
+      "type": "array"
+    },
     "consents": {
       "items": {
         "$ref": "Consent.json"
+      },
+      "type": "array"
+    },
+    "sessions": {
+      "items": {
+        "$ref": "SessionMeta.json"
       },
       "type": "array"
     },
@@ -33,7 +45,9 @@
     "user",
     "traveler_profile",
     "taste_profiles",
-    "consents"
+    "consents",
+    "accounts",
+    "sessions"
   ],
   "title": "AccountExport",
   "type": "object"

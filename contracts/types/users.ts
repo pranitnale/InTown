@@ -101,16 +101,44 @@ export const Consent = z.object({
 export type Consent = z.infer<typeof Consent>;
 
 /**
+ * Non-secret metadata for a linked OAuth/OIDC identity (`accounts`, 0012). Only
+ * the identity-describing columns are exported — the token columns
+ * (`access_token`, `refresh_token`, `id_token`, `session_state`, …) are NEVER
+ * included. `type` is `NOT NULL` in the schema, so it is a plain string here.
+ */
+export const AccountLink = z.object({
+  provider: z.string(),
+  provider_account_id: z.string(),
+  type: z.string(),
+});
+export type AccountLink = z.infer<typeof AccountLink>;
+
+/**
+ * Non-secret metadata for a server-side session (`sessions`, 0012). The
+ * `session_token` (the sole secret column) is NEVER included; only the expiry
+ * is exported. The `sessions` table has no other non-secret column.
+ */
+export const SessionMeta = z.object({
+  expires: IsoDateTime,
+});
+export type SessionMeta = z.infer<typeof SessionMeta>;
+
+/**
  * GDPR subject-access export (§16.1). The complete personal record the erasure
  * endpoint would remove: the user row, the (single) traveler profile, EVERY
- * taste-profile version (ordered by version), and every consent state row.
- * Anonymous aggregates (pseudonymous `events`, global `item_stats`) are
- * deliberately absent — they carry no personal data and survive erasure.
+ * taste-profile version (ordered by version), every consent state row, plus the
+ * auth-infra metadata — linked OAuth identities (`accounts`) and session
+ * metadata (`sessions`), both restricted to non-secret columns (no token or
+ * `session_token` values). Anonymous aggregates (pseudonymous `events`, global
+ * `item_stats`) are deliberately absent — they carry no personal data and
+ * survive erasure.
  */
 export const AccountExport = z.object({
   user: User,
   traveler_profile: TravelerProfile.nullable(),
   taste_profiles: z.array(TasteProfile),
   consents: z.array(Consent),
+  accounts: z.array(AccountLink),
+  sessions: z.array(SessionMeta),
 });
 export type AccountExport = z.infer<typeof AccountExport>;

@@ -1,0 +1,23 @@
+{
+  "$id": "AccountLink.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "provider_account_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "provider_account_id",
+    "type"
+  ],
+  "title": "AccountLink",
+  "type": "object"
+}
