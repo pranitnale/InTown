@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { runSave, type SaveActionHandlers } from '../logic/saveAction.ts';
 import {
   applySwipe,
   survivors,
@@ -186,5 +187,47 @@ describe('age → pace preset (AC #7)', () => {
     const reason = pacePresetReason('65+');
     expect(reason).toContain('starting point');
     expect(reason.toLowerCase()).toContain('change it anytime');
+  });
+});
+
+describe('runSave orchestration (AC #1 — save error path)', () => {
+  function makeHandlers(): {
+    handlers: SaveActionHandlers;
+    setBusy: ReturnType<typeof vi.fn>;
+    setError: ReturnType<typeof vi.fn>;
+  } {
+    const setBusy = vi.fn();
+    const setError = vi.fn();
+    return { handlers: { setBusy, setError }, setBusy, setError };
+  }
+
+  it('surfaces a rejected save via setError with the error message and clears busy in finally', async () => {
+    const { handlers, setBusy, setError } = makeHandlers();
+    const ok = await runSave(
+      () => Promise.reject(new Error('session expired')),
+      handlers,
+      'fallback',
+    );
+    expect(ok).toBe(false);
+    // busy toggled on then off — cleared even though the action rejected.
+    expect(setBusy.mock.calls).toEqual([[true], [false]]);
+    // error cleared at start, then set to the rejection's message.
+    expect(setError.mock.calls).toEqual([[null], ['session expired']]);
+  });
+
+  it('uses the fallback message when the rejection is not an Error', async () => {
+    const { handlers, setError } = makeHandlers();
+    const ok = await runSave(() => Promise.reject('boom'), handlers, 'Could not save');
+    expect(ok).toBe(false);
+    expect(setError).toHaveBeenLastCalledWith('Could not save');
+  });
+
+  it('on success clears any prior error and clears busy, without re-setting an error', async () => {
+    const { handlers, setBusy, setError } = makeHandlers();
+    const ok = await runSave(() => Promise.resolve(), handlers, 'fallback');
+    expect(ok).toBe(true);
+    expect(setBusy.mock.calls).toEqual([[true], [false]]);
+    // setError called exactly once with null (the pre-save clear); never an error.
+    expect(setError.mock.calls).toEqual([[null]]);
   });
 });

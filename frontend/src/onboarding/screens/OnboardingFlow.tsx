@@ -83,6 +83,13 @@ export function OnboardingFlow() {
    * Errors surface as an alert rather than being swallowed as a fire-and-forget.
    */
   async function persistAgeBand(band: AgeBand) {
+    // GUARD (live-client wiring): `traveler` is null until load() resolves, so
+    // create-vs-update is decided from possibly-unloaded state. Harmless with
+    // today's mock (seeded synchronously), but with the live client a returning
+    // user who re-runs onboarding before load resolves would look like a first
+    // create and send the full-defaults body — the backend upsert would then
+    // overwrite their existing mobility/residency/student/currency/languages.
+    // Whoever wires the live client must gate this on load having completed.
     const existing = store.getState().traveler;
     const body: UpdateTravelerProfileBody = existing
       ? { age_band: band }
