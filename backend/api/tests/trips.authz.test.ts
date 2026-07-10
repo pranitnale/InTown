@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { authPlugin, requireAuth } from '../src/auth/hooks.ts';
+import { assertEditor } from '../src/trips/authz.ts';
+import type { TripRole } from '@intown/contracts/types';
 import { createPools, closePools, type Pools } from '../src/db/pool.ts';
 import {
   createAdminPool,
@@ -135,5 +137,51 @@ describe('requireAuth trip levels (AC1, AC2)', () => {
     });
     expect(res.statusCode).toBe(403);
     expect(res.json()).toEqual({ error: 'forbidden' });
+  });
+});
+
+/**
+ * P06 AC2 (API half) — assertEditor, the handler-level guard write-path routes
+ * call after requireAuth('member') has stashed req.tripRole. Owners and editors
+ * pass; a viewer is rejected with a 403 and the guard reports it must stop.
+ */
+describe('assertEditor (AC2)', () => {
+  /** A reply stub recording the last code()/send() so the guard is observable. */
+  function fakeReply(): { reply: FastifyReply; sent: { code: number | null; body: unknown } } {
+    const sent: { code: number | null; body: unknown } = { code: null, body: undefined };
+    const reply = {
+      code(c: number) {
+        sent.code = c;
+        return this;
+      },
+      async send(b: unknown) {
+        sent.body = b;
+        return this;
+      },
+    };
+    return { reply: reply as unknown as FastifyReply, sent };
+  }
+
+  function reqWithRole(role: TripRole | undefined): FastifyRequest {
+    return { tripRole: role } as unknown as FastifyRequest;
+  }
+
+  it('an owner passes and no response is sent', async () => {
+    const { reply, sent } = fakeReply();
+    expect(await assertEditor(reqWithRole('owner'), reply)).toBe(true);
+    expect(sent.code).toBeNull();
+  });
+
+  it('an editor passes and no response is sent', async () => {
+    const { reply, sent } = fakeReply();
+    expect(await assertEditor(reqWithRole('editor'), reply)).toBe(true);
+    expect(sent.code).toBeNull();
+  });
+
+  it('a viewer is denied: returns false and sends 403 forbidden', async () => {
+    const { reply, sent } = fakeReply();
+    expect(await assertEditor(reqWithRole('viewer'), reply)).toBe(false);
+    expect(sent.code).toBe(403);
+    expect(sent.body).toEqual({ error: 'forbidden' });
   });
 });
