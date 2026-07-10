@@ -85,6 +85,15 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
    WHERE tp.id = trip_place
 $$;
 
+-- Total order over the role enum (viewer < editor < owner) as an integer rank.
+-- IMMUTABLE + no table access, so it needs no elevated privilege; redeem_invite
+-- uses it to enforce upgrade-only role changes. Not SECURITY DEFINER — it reads
+-- no rows, only its argument.
+CREATE OR REPLACE FUNCTION trip_role_rank(role trip_role) RETURNS integer
+LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE role WHEN 'owner' THEN 3 WHEN 'editor' THEN 2 WHEN 'viewer' THEN 1 END
+$$;
+
 -- ---------------------------------------------------------------------------
 -- trips — member SELECT, self INSERT as owner, owner UPDATE/DELETE.
 -- ---------------------------------------------------------------------------
@@ -209,8 +218,23 @@ CREATE POLICY intercity_legs_delete ON intercity_legs FOR DELETE
 -- ---------------------------------------------------------------------------
 -- redeem_invite(code) — the /api/join/:code entry point. SECURITY DEFINER so a
 -- prospective member (who is NOT yet a member and therefore cannot read the
--- invite under trip_invites RLS) can validate and redeem it. Upserts the caller's
--- membership with the invite's embedded role.
+-- invite under trip_invites RLS) can validate and redeem it. Adds the caller's
+-- membership with the invite's embedded role, or — when they are already a member
+-- — UPGRADES their role toward it, never DOWNGRADES.
+--
+-- WHY NEVER DOWNGRADE (owner_id ⇔ owner-membership invariant): this function is
+-- the RLS-bypassing boundary, callable regardless of any route-level guard. A
+-- blind `ON CONFLICT DO UPDATE SET role = EXCLUDED.role` would let a trip owner
+-- who redeems a weaker link (e.g. previewing their own invite; trips.join is
+-- auth 'user' so anyone may call it) demote their own `trip_members` row out of
+-- 'owner'. requireAuth('owner') resolves the role from trip_members alone, so
+-- that owner would then permanently 403 on every owner route while the DB
+-- policies — is_trip_owner honours trips.owner_id — still grant them owner power:
+-- split-brain authz with no API self-recovery. Redeeming therefore only ever
+-- raises a member's role by rank (viewer < editor < owner); an equal-or-lower
+-- embedded role is a no-op on the existing row. Establishing a NEW 'owner'
+-- membership stays the exclusive job of create-trip and the ownership-transfer
+-- path, which keep trips.owner_id in lockstep inside one transaction.
 --
 -- Typed failures, surfaced to the API via SQLSTATE so it can map them to HTTP:
 --   IT404 — code is unknown (→ 404 not found).
@@ -236,10 +260,22 @@ BEGIN
     RAISE EXCEPTION 'invite % is revoked or expired', redeem_invite.code USING ERRCODE = 'IT410';
   END IF;
 
+  -- Upsert-then-upgrade-only. The ON CONFLICT branch updates the role ONLY when
+  -- the invite's embedded role strictly outranks the caller's current role, so an
+  -- existing owner (top rank) is never touched and no member is ever demoted.
+  -- `trip_role_rank` (0013) maps viewer→1, editor→2, owner→3.
   INSERT INTO trip_members (trip_id, user_id, role)
   VALUES (inv.trip_id, uid, inv.role)
-  ON CONFLICT (trip_id, user_id) DO UPDATE SET role = EXCLUDED.role
-  RETURNING * INTO result;
+  ON CONFLICT (trip_id, user_id) DO UPDATE
+    SET role = EXCLUDED.role
+    WHERE trip_role_rank(EXCLUDED.role) > trip_role_rank(trip_members.role);
+
+  -- The upsert may have no-opped (an equal/lower embedded role on an existing
+  -- row leaves it untouched), so read the caller's effective membership back
+  -- unconditionally rather than relying on RETURNING, which yields no row when
+  -- the DO UPDATE ... WHERE predicate skips the update.
+  SELECT * INTO result FROM trip_members
+   WHERE trip_id = inv.trip_id AND user_id = uid;
 
   RETURN result;
 END;
