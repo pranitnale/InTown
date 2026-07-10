@@ -78,6 +78,24 @@ describe('trip invites + join (AC3)', () => {
     expect(rows[0]?.role).toBe('editor');
   });
 
+  it('createInvite rejects role=owner (ownership is transferred, never invited)', async () => {
+    const res = await ts.app.inject({
+      method: 'POST',
+      url: `/api/trips/${tripId}/invites`,
+      headers: { cookie: cookieOwner, 'content-type': 'application/json' },
+      payload: { role: 'owner', expires_at: '2027-01-01T00:00:00Z' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error).toBe('bad_request');
+
+    // No invite row was created.
+    const { rows } = await admin.query(
+      `SELECT 1 FROM trip_invites WHERE trip_id = $1`,
+      [tripId],
+    );
+    expect(rows).toHaveLength(0);
+  });
+
   it('listInvites returns active invites only (not revoked, not expired)', async () => {
     await seedInvite({ code: 'active-code-000000000A', role: 'viewer', expiresAt: '2027-01-01T00:00:00Z' });
     await seedInvite({ code: 'revoked-code-00000000B', role: 'viewer', expiresAt: '2027-01-01T00:00:00Z', revoked: true });

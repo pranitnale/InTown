@@ -87,10 +87,22 @@ export function listInvitesHandler(pools: Pools): RouteHandler {
 }
 
 export function createInviteHandler(pools: Pools): RouteHandler {
-  return async (req) => {
+  return async (req, reply) => {
     const userId = req.user!.id;
     const { id } = req.params as { id: string };
     const body = req.body as CreateInviteBody;
+    // Invites never grant ownership: an 'owner' code would make redeem_invite
+    // (0013, upgrade-only) promote every redeemer to an 'owner' membership row
+    // while trips.owner_id still names the original owner, breaking the
+    // owner_id ⇔ single-owner-membership invariant and handing any link holder
+    // full owner power. Establishing owner status stays exclusive to create-trip
+    // and the ownership-transfer path. Ownership is transferred, never invited.
+    if (body.role === 'owner') {
+      return reply.code(400).send({
+        error: 'bad_request',
+        detail: 'invites cannot grant the owner role; transfer ownership instead',
+      });
+    }
     return withUserContext(pools.appPool, userId, async (client) => {
       const { rows } = await client.query<TripInviteRow>(
         `INSERT INTO trip_invites (trip_id, code, role, expires_at, created_by)
