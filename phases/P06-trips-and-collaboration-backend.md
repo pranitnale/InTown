@@ -50,8 +50,8 @@ cd backend && node scripts/realtime-two-client-demo.mjs
 - [x] Trips CRUD + ownership transfer + RLS.
 - [x] Owner/Editor/Viewer role enforcement.
 - [x] Expiring/revocable invite links w/ embedded role + `/join/:code`.
-- [ ] Membership + per-member votes (aggregate-only disclosure).
-- [ ] Fractional indexing (jitter + rebalance, no CRDTs).
+- [x] Membership + per-member votes (aggregate-only disclosure).
+- [x] Fractional indexing (jitter + rebalance, no CRDTs).
 - [ ] Supabase Realtime Broadcast + Presence + per-column LWW.
 - [ ] Preference-merge engine (filters + misery threshold).
 - [ ] Tests + two-client realtime demo; Verification commands green.
