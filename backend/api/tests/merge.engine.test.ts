@@ -81,6 +81,49 @@ describe('merge engine: hard filters (AC7)', () => {
     expect(inaccessible!.flags).toContain('mobility');
     expect(accessible!.flags).not.toContain('mobility');
   });
+
+  it('undefined tags fail OPEN — tag-based hard filters are skipped (not-yet-enriched)', () => {
+    // A dietary need + a strict mobility member. A candidate with UNKNOWN tags (field
+    // omitted) must NOT be dietary/mobility-excluded — enrichment is P14's job, and
+    // failing closed would wrongly wipe out every un-enriched meal/POI. Mirrors the
+    // omitted-price_tier budget no-op.
+    const members = [member({ dietary: ['vegetarian'], mobility: 'wheelchair' })];
+    const [meal, sight] = scoreCandidates(members, [
+      { poi_id: 'meal', category: 'RESTAURANT', votes: [null] }, // tags undefined
+      { poi_id: 'sight', category: 'MUSEUM', votes: [null] }, // tags undefined
+    ]);
+    expect(meal!.excluded).toBe(false);
+    expect(meal!.flags).not.toContain('dietary');
+    expect(meal!.flags).not.toContain('mobility');
+    expect(sight!.excluded).toBe(false);
+    expect(sight!.flags).not.toContain('mobility');
+  });
+
+  it('explicit empty tags fail CLOSED — known-no-tags trips the tag-based filters', () => {
+    // The SAME member set as above, but candidates now assert `tags: []` (known: this
+    // POI carries no accommodation/accessibility tags). Now the filters run and veto.
+    const members = [member({ dietary: ['vegetarian'], mobility: 'wheelchair' })];
+    const [meal, sight] = scoreCandidates(members, [
+      { poi_id: 'meal', category: 'RESTAURANT', tags: [], votes: [null] },
+      { poi_id: 'sight', category: 'MUSEUM', tags: [], votes: [null] },
+    ]);
+    expect(meal!.excluded).toBe(true);
+    expect(meal!.flags).toContain('dietary');
+    expect(meal!.flags).toContain('mobility');
+    expect(sight!.excluded).toBe(true);
+    expect(sight!.flags).toContain('mobility');
+  });
+
+  it('a category-level hard exclusion still applies when tags are undefined', () => {
+    // Fail-open covers only the TAG-based filters; the category is always known, so a
+    // hard exclusion on the category must still veto even with tags unknown.
+    const members = [member({ hard_exclusions: ['NIGHTLIFE'] })];
+    const [row] = scoreCandidates(members, [
+      { poi_id: 'club', category: 'NIGHTLIFE', votes: [null] }, // tags undefined
+    ]);
+    expect(row!.excluded).toBe(true);
+    expect(row!.flags).toContain('hard_exclusion');
+  });
 });
 
 describe('merge engine: soft scoring + misery threshold (AC7)', () => {

@@ -15,8 +15,13 @@ import type { MergeCandidate, MergeMember } from './engine.ts';
  *
  * Candidates here carry only what today's schema knows — `poi_id` + `category` +
  * per-member votes. `tags` / `price_tier` (which drive the dietary / budget /
- * mobility hard filters) are left for P14 to enrich from the POI knowledge base;
- * until then those filters are inert and scoring rests on interests/anti/votes.
+ * mobility hard filters) are left UNDEFINED for P14 to enrich from the POI knowledge
+ * base. The engine treats undefined `tags`/`price_tier` as not-yet-known and FAILS
+ * OPEN — it skips the tag- and price-based hard filters rather than excluding on
+ * missing data — so until P14 enriches, those filters are genuinely inert and scoring
+ * rests on interests/anti/votes. (Note the engine distinguishes this from an explicit
+ * empty `tags: []`, which is "known: no tags" and fails closed; this loader never
+ * emits that, it omits the field entirely.)
  */
 
 /** Neutral defaults for a member with no taste/traveler profile yet. */

@@ -44,8 +44,14 @@ export interface MergeMember {
  * anti-preferences / hard exclusions; `tags` also supplies the dietary-accommodation
  * and accessibility vocabulary the meal + mobility filters read. `votes` is aligned
  * BY INDEX to the members array passed to {@link scoreCandidates} (null = no vote).
- * `price_tier` is omitted when unknown, in which case the budget filter is a no-op
- * for this candidate (P14 enriches candidates with tags/price before calling).
+ *
+ * UNKNOWN-DATA SEMANTICS (fail-open, uniform across the tag- and price-driven hard
+ * filters): `tags` OMITTED (undefined) means "not yet enriched" — the tag-based hard
+ * filters (dietary, mobility) are SKIPPED for this candidate, mirroring how an omitted
+ * `price_tier` makes the budget filter a no-op. An explicit empty `tags: []` is
+ * different: it means "known, and this POI carries no tags", so those filters run and
+ * fail CLOSED (a dietary/mobility need goes unmet → excluded). P14 enriches candidates
+ * with tags/price before calling; until then every hard filter is inert.
  */
 export interface MergeCandidate {
   poi_id: string;
@@ -163,6 +169,10 @@ export function scoreCandidates(
   const mobilityRequiredTag = MOBILITY_REQUIRED_TAG[strictestMobility];
 
   return candidates.map((candidate) => {
+    // `tags` undefined => not-yet-enriched: the tag-based hard filters fail OPEN
+    // (skipped). An explicit `[]` means known-no-tags and fails CLOSED where a need
+    // applies. Hard exclusions still match the always-known category via descriptors.
+    const tagsKnown = candidate.tags !== undefined;
     const descriptors = descriptorsOf(candidate);
     const tagSet = new Set<string>(candidate.tags ?? []);
     const flags: MergeFlag[] = [];
@@ -173,8 +183,9 @@ export function scoreCandidates(
       excluded = true;
       flags.push('hard_exclusion');
     }
-    // Dietary: only meal categories; every member's dietary need must be met.
-    if (MEAL_CATEGORIES.has(candidate.category) && unionDietary.size > 0) {
+    // Dietary: only meal categories; every member's dietary need must be met. Skipped
+    // when tags are unknown (fail-open); an explicit empty tag set fails closed.
+    if (tagsKnown && MEAL_CATEGORIES.has(candidate.category) && unionDietary.size > 0) {
       let unmet = false;
       for (const d of unionDietary) if (!tagSet.has(d)) unmet = true;
       if (unmet) {
@@ -187,8 +198,9 @@ export function scoreCandidates(
       excluded = true;
       flags.push('budget');
     }
-    // Mobility: must carry the tag the strictest member needs.
-    if (mobilityRequiredTag !== null && !tagSet.has(mobilityRequiredTag)) {
+    // Mobility: must carry the tag the strictest member needs. Skipped when tags are
+    // unknown (fail-open); an explicit empty tag set fails closed.
+    if (mobilityRequiredTag !== null && tagsKnown && !tagSet.has(mobilityRequiredTag)) {
       excluded = true;
       flags.push('mobility');
     }
