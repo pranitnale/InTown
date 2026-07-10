@@ -195,8 +195,11 @@ export async function rebalanceTripCity(client: PoolClient, tripCityId: string):
   // by a concurrent request between the SELECT and here is absent from `ids`, so
   // the final UPDATE never keys it. Parking it too would strand it on a '~' value
   // no rewrite reaches — a persisted, out-of-alphabet position. Leaving it be, at
-  // worst its key clashes with a final key and this transaction rolls back on the
-  // 23505 backstop, which the caller retries — no corruption survives.
+  // worst its key clashes with a final key and the final UPDATE trips the unique
+  // backstop (23505): this whole transaction then rolls back atomically and the
+  // 23505 surfaces to the caller as an error. No call site retries a rebalance (the
+  // add/patch handlers rebalance OUTSIDE their savepoint guard), so the effect is a
+  // failed request, never corruption — nothing is left half-rewritten.
   await client.query(
     `UPDATE trip_places SET position = '~' || id::text WHERE id = ANY($1::uuid[])`,
     [ids],

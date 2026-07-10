@@ -209,9 +209,10 @@ describe('curation ordering (AC5)', () => {
   it('an add with an overlong client position rebalances instead of 500ing', async () => {
     await seedPlace(admin, { tripCityId, poiId: poiIds[0]!, addedBy: editor.id, position: 'a1' });
 
-    // A legal key (all base62, no trailing '0') but far past the btree index-row
-    // byte limit: the raw INSERT would raise SQLSTATE 54000 → unhandled 500. The
-    // backstop must rebalance and append a short key instead.
+    // A legal key (all base62, no trailing '0') but pathologically long. Pre-fix such
+    // a key was either rejected with SQLSTATE 54000 → unhandled 500 (incompressible)
+    // or silently ACCEPTED into the index (compressible, like this repeated char) —
+    // both bad. The backstop must instead rebalance and append a short key.
     const overlong = 'a'.repeat(3000);
     const res = await ts.app.inject({
       method: 'POST',
