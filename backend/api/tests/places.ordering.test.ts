@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { withUserContext } from '../src/auth/session.ts';
-import { rebalanceTripCity } from '../src/ordering/fractional.ts';
+import { REBALANCE_THRESHOLD, rebalanceTripCity } from '../src/ordering/fractional.ts';
 import {
   createAdminPool,
   makeTestServer,
@@ -152,6 +152,88 @@ describe('curation ordering (AC5)', () => {
     // …and every key is now short and unique.
     for (const r of after) expect(r.position.length).toBeLessThanOrEqual(4);
     expect(new Set(after.map((r) => r.position)).size).toBe(after.length);
+  });
+
+  it('rebalance parks only its snapshot ids, leaving a concurrent insert un-corrupted', async () => {
+    // Four rows with long keys, ascending — the input to a rebalance.
+    const longKeys = ['1'.repeat(46), '2'.repeat(46), '3'.repeat(46), '4'.repeat(46)];
+    for (let i = 0; i < longKeys.length; i += 1) {
+      await seedPlace(admin, { tripCityId, poiId: poiIds[i]!, addedBy: editor.id, position: longKeys[i] });
+    }
+
+    // Simulate the concurrency window: a separate, committed request inserts a row
+    // AFTER rebalance's snapshot SELECT but BEFORE its park UPDATE. Under READ
+    // COMMITTED the park sees this row; parking it (old `WHERE trip_city_id`) would
+    // strand it on a '~' value the final keyed UPDATE never rewrites.
+    await withUserContext(ts.pools.appPool, editor.id, async (realClient) => {
+      let injected = false;
+      const client = new Proxy(realClient, {
+        get(target, prop, receiver) {
+          if (prop === 'query') {
+            return async (...args: unknown[]): Promise<unknown> => {
+              const res = await (target.query as (...a: unknown[]) => Promise<unknown>)(...args);
+              const first = args[0];
+              const sql = typeof first === 'string' ? first : (first as { text?: string } | undefined)?.text;
+              if (!injected && sql?.includes('SELECT id FROM trip_places')) {
+                injected = true;
+                await admin.query(
+                  `INSERT INTO trip_places (trip_city_id, poi_id, position, added_by)
+                   VALUES ($1, $2, $3, $4)`,
+                  [tripCityId, poiIds[4]!, 'z9', editor.id],
+                );
+              }
+              return res;
+            };
+          }
+          const value = Reflect.get(target, prop, receiver);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+      await rebalanceTripCity(client, tripCityId);
+    });
+
+    // No row is left on an out-of-alphabet '~' position — the concurrent insert kept
+    // its real key, and every original row got a fresh short key.
+    const rows = (
+      await admin.query<{ position: string }>(
+        `SELECT position FROM trip_places WHERE trip_city_id = $1`,
+        [tripCityId],
+      )
+    ).rows;
+    expect(rows).toHaveLength(5);
+    for (const r of rows) expect(r.position.startsWith('~')).toBe(false);
+    // …and the concurrently-inserted row is untouched.
+    expect(rows.some((r) => r.position === 'z9')).toBe(true);
+  });
+
+  it('an add with an overlong client position rebalances instead of 500ing', async () => {
+    await seedPlace(admin, { tripCityId, poiId: poiIds[0]!, addedBy: editor.id, position: 'a1' });
+
+    // A legal key (all base62, no trailing '0') but far past the btree index-row
+    // byte limit: the raw INSERT would raise SQLSTATE 54000 → unhandled 500. The
+    // backstop must rebalance and append a short key instead.
+    const overlong = 'a'.repeat(3000);
+    const res = await ts.app.inject({
+      method: 'POST',
+      url: `/api/trips/${tripId}/places`,
+      headers: { cookie: cookieEditor, 'content-type': 'application/json' },
+      payload: { trip_city_id: tripCityId, poi_id: poiIds[1]!, position: overlong },
+    });
+    expect(res.statusCode).toBe(200);
+    const pos = (res.json() as { position: string }).position;
+    expect(pos).not.toBe(overlong);
+    expect(pos.length).toBeLessThanOrEqual(REBALANCE_THRESHOLD); // short — rebalanced + appended
+    expect(pos.endsWith('0')).toBe(false);
+
+    // Both rows persisted, distinct, and neither is the overlong key.
+    const rows = (
+      await admin.query<{ position: string }>(
+        `SELECT position FROM trip_places WHERE trip_city_id = $1 ORDER BY position COLLATE "C"`,
+        [tripCityId],
+      )
+    ).rows;
+    expect(rows).toHaveLength(2);
+    for (const r of rows) expect(r.position.length).toBeLessThanOrEqual(REBALANCE_THRESHOLD);
   });
 
   it('an add with an omitted position appends a valid jittered key after the last', async () => {

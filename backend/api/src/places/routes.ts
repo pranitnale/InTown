@@ -175,6 +175,14 @@ export function addPlaceHandler(pools: Pools): RouteHandler {
         // Client-supplied key: use as given, only reject an illegal one.
         if (!isValidKey(body.position)) return badRequest(reply, 'position is not a valid ordering key');
         key = body.position;
+        // Dense-slot backstop (mirrors patch): an unbounded client key this long
+        // would blow the btree index-row limit (54000). Rebalance the city to
+        // reclaim precision, then append the new row short — its client-computed
+        // target no longer maps to any neighbour.
+        if (needsRebalance(key)) {
+          await rebalanceTripCity(client, body.trip_city_id);
+          key = jitter(keyAfter(await lastPosition(client, body.trip_city_id)));
+        }
       } else {
         // Append: mint a jittered key after the current last. If it has grown long
         // (dense tail), rebalance the whole city first, then re-append short.

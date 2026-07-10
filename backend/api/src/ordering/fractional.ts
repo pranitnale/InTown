@@ -190,10 +190,16 @@ export async function rebalanceTripCity(client: PoolClient, tripCityId: string):
   const keys = rebalanceKeys(ids.length);
 
   // Park on '~' || id: '~' (0x7E) is outside the base62 alphabet, so no parked
-  // value can equal any current or final key, and each is unique per row.
+  // value can equal any current or final key, and each is unique per row. Park
+  // ONLY the snapshot ids (not `WHERE trip_city_id = $1`): a row inserted+committed
+  // by a concurrent request between the SELECT and here is absent from `ids`, so
+  // the final UPDATE never keys it. Parking it too would strand it on a '~' value
+  // no rewrite reaches — a persisted, out-of-alphabet position. Leaving it be, at
+  // worst its key clashes with a final key and this transaction rolls back on the
+  // 23505 backstop, which the caller retries — no corruption survives.
   await client.query(
-    `UPDATE trip_places SET position = '~' || id::text WHERE trip_city_id = $1`,
-    [tripCityId],
+    `UPDATE trip_places SET position = '~' || id::text WHERE id = ANY($1::uuid[])`,
+    [ids],
   );
   await client.query(
     `UPDATE trip_places AS tp
