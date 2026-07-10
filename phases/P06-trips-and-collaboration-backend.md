@@ -52,6 +52,44 @@ cd backend && node scripts/realtime-two-client-demo.mjs
 - [x] Expiring/revocable invite links w/ embedded role + `/join/:code`.
 - [x] Membership + per-member votes (aggregate-only disclosure).
 - [x] Fractional indexing (jitter + rebalance, no CRDTs).
-- [ ] Supabase Realtime Broadcast + Presence + per-column LWW.
-- [ ] Preference-merge engine (filters + misery threshold).
-- [ ] Tests + two-client realtime demo; Verification commands green.
+- [x] Supabase Realtime Broadcast + Presence + per-column LWW.
+- [x] Preference-merge engine (filters + misery threshold).
+- [x] Tests + two-client realtime demo; Verification commands green.
+
+## Notes / contract-change flags
+
+Recorded during implementation (contracts/ is FROZEN — these are flagged for a future
+contract revision, NOT changed here):
+
+1. **`BroadcastVoteCast` carries `user_id` on the wire** (contracts/api/channels.ts).
+   This is in tension with the aggregate-only disclosure rule (§6.3): the DB enforces
+   self-only vote visibility (0013 `place_votes_self`) and exposes group tallies only
+   through `place_vote_counts()`, yet the realtime `vote_cast` broadcast names the
+   voter. Implemented per the frozen contract (0014 `broadcast_place_vote`); a future
+   contract revision should decide whether live vote events should be
+   attributed-to-self-only or aggregated before broadcast.
+2. **Leave / ownership-transfer have no dedicated routes.** The 16 frozen `trips.*`
+   routes contain no leave or transfer verb, so leave is implemented as
+   `removeMember` with an owner-**or-self** guard and ownership transfer as
+   `updateMember` with `role: 'owner'` (single txn + advisory lock swapping
+   `trips.owner_id`). Flagged as interpretations of the existing routes.
+3. **No vote-aggregate HTTP endpoint.** Vote counts exist at the DB
+   (`place_vote_counts()`) and module (`getVoteCounts`) level but are not on the wire —
+   no contract route returns them. P14 (curation decision cards) will need these
+   counts exposed via an endpoint; a contract addition is required then.
+
+### Realtime dev-stack notes (backend/infra)
+
+Getting the pinned `supabase/realtime:v2.34.47` container to run the Broadcast-from-
+Database path on the bare `postgis` image (vs. the official `supabase/postgres`)
+required dev-only infra fixes, all documented inline:
+- `RLIMIT_NOFILE`/`ulimits` capped at the host's 4096 (10000 crash-looped the boot);
+- a byte-for-byte `runtime.exs` override forcing the HTTP listener to IPv4 (this
+  sandbox kernel has no IPv6; production keeps the vendored `[:inet6]`);
+- `SELF_HOST_TENANT_NAME=localhost` so a client reaches the tenant with no DNS
+  trickery, and `wal_level=logical` so the tenant's replication (which fans
+  `realtime.messages` inserts out to sockets) starts;
+- `postgres-init/02-realtime-broadcast.sql` pre-creates the `realtime` schema + the
+  supabase roles the tenant migrations GRANT to.
+CI (bare Postgres, no realtime container) is unaffected: `intown_broadcast` no-ops
+when `realtime.send` is absent, and `realtime.broadcast.test.ts` skips with a notice.
