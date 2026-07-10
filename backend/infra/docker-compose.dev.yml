@@ -18,6 +18,15 @@ services:
   postgres:
     image: postgis/postgis:16-3.5
     restart: unless-stopped
+    # wal_level=logical is required for Supabase Realtime's Broadcast-from-Database:
+    # `realtime.send()` inserts into `realtime.messages`, and the realtime container
+    # tails that table over a logical-replication slot to fan rows out to subscribed
+    # sockets. The postgis image's default `replica` level makes the tenant's
+    # replication startup fail ("logical decoding requires wal_level >= logical") and
+    # terminate. `command` overrides only the CMD; the image ENTRYPOINT still runs the
+    # first-init scripts below. CI runs bare Postgres with no realtime and is
+    # unaffected.
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev_password
@@ -26,11 +35,16 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Single-file mount (NOT a directory mount) so we add the _realtime schema
-      # bootstrap WITHOUT shadowing the postgis image's own /docker-entrypoint-
-      # initdb.d/*.sh scripts that install the PostGIS extensions. Runs before
-      # 10_postgis.sh (alphabetical order); only executes on first cluster init.
+      # Single-file mounts (NOT a directory mount) so we add the realtime bootstrap
+      # WITHOUT shadowing the postgis image's own /docker-entrypoint-initdb.d/*.sh
+      # scripts that install the PostGIS extensions. Run before 10_postgis.sh
+      # (alphabetical order); only execute on first cluster init.
       - ./postgres-init/01-realtime.sql:/docker-entrypoint-initdb.d/01-realtime.sql:ro
+      # Pre-creates the `realtime` schema + the supabase roles the realtime tenant
+      # migrations GRANT to. The official supabase/postgres image ships these; the
+      # bare postgis image does not, so without this the tenant migrations abort with
+      # `schema "realtime" does not exist`.
+      - ./postgres-init/02-realtime-broadcast.sql:/docker-entrypoint-initdb.d/02-realtime-broadcast.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d intown"]
       interval: 5s
@@ -79,13 +93,39 @@ services:
       # wrong length crashes the boot after migrations. 16 chars below.
       DB_ENC_KEY: intown_dev_key16
       API_JWT_SECRET: intown-dev-jwt-secret-change-me-000000
+      # Realtime resolves the tenant from the FIRST label of the request Host
+      # header (e.g. `localhost:4000` → tenant `localhost`). Naming the seeded
+      # self-host tenant `localhost` lets a local client connect straight to
+      # `ws://localhost:4000/socket` with no subdomain/DNS trickery. The tenant's
+      # jwt_secret is seeded to API_JWT_SECRET above, so a JWT signed with that
+      # secret authenticates the socket. (Default would be `realtime-dev`.)
+      SELF_HOST_TENANT_NAME: localhost
       SECRET_KEY_BASE: intown-dev-secret-key-base-change-me-00000000000000000000000000000000000000
       ERL_AFLAGS: "-proto_dist inet_tcp"
       DNS_NODES: "''"
-      RLIMIT_NOFILE: "10000"
+      # Realtime's run.sh does `ulimit -Sn $RLIMIT_NOFILE` under `set -e`, so the
+      # value must not exceed the container's hard NOFILE limit or boot dies with
+      # exit 1 before Elixir starts. Dockerd here cannot raise the hard limit above
+      # the host's 4096, so we cap both this env and the ulimits block below at
+      # 4096 (was 10000, which crash-looped the container). Plenty for local dev.
+      RLIMIT_NOFILE: "4096"
       APP_NAME: realtime
       SEED_SELF_HOST: "true"
       RUN_JANITOR: "true"
+    # Match RLIMIT_NOFILE above: raise the container's soft limit to the hard cap
+    # so `ulimit -Sn 4096` in run.sh succeeds instead of tripping `set -e`.
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
+    volumes:
+      # DEV-ONLY override of the vendored Elixir runtime config, pinned to the
+      # v2.34.47 image path. Upstream hardcodes the HTTP listener to `[:inet6]`;
+      # this sandbox's kernel has no IPv6, so that listener fails to bind
+      # (:eafnosupport) and crash-loops the container. The override is byte-for-byte
+      # identical to the image's file except the single `socket_opts` line forced to
+      # `[:inet]`. Production is unaffected (it runs the vendored image directly).
+      - ./realtime/runtime.exs:/app/releases/2.34.47/runtime.exs:ro
     ports:
       - "4000:4000"
 
