@@ -47,9 +47,9 @@ cd backend && node scripts/realtime-two-client-demo.mjs
 ```
 
 ## Resume checklist
-- [ ] Trips CRUD + ownership transfer + RLS.
-- [ ] Owner/Editor/Viewer role enforcement.
-- [ ] Expiring/revocable invite links w/ embedded role + `/join/:code`.
+- [x] Trips CRUD + ownership transfer + RLS.
+- [x] Owner/Editor/Viewer role enforcement.
+- [x] Expiring/revocable invite links w/ embedded role + `/join/:code`.
 - [ ] Membership + per-member votes (aggregate-only disclosure).
 - [ ] Fractional indexing (jitter + rebalance, no CRDTs).
 - [ ] Supabase Realtime Broadcast + Presence + per-column LWW.
