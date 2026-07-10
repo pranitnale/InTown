@@ -87,6 +87,10 @@ async function main() {
     ), p AS (
       INSERT INTO pois (city_id, name, category, indoor_outdoor)
       SELECT c.id, 'RT Demo POI', 'MUSEUM', 'indoor' FROM c RETURNING id
+    ), pw AS (
+      -- Distinct POI for the warm-up row: trip_places is UNIQUE(trip_city_id, poi_id).
+      INSERT INTO pois (city_id, name, category, indoor_outdoor)
+      SELECT c.id, 'RT Demo Warmup POI', 'MUSEUM', 'indoor' FROM c RETURNING id
     ), t AS (
       INSERT INTO trips (owner_id, name)
       SELECT id, 'RT Demo Trip' FROM u WHERE email = 'rt-demo-a@example.com' RETURNING id, owner_id
@@ -96,14 +100,20 @@ async function main() {
     ), tp AS (
       INSERT INTO trip_places (trip_city_id, poi_id, position, state, added_by)
       SELECT tc.id, p.id, 'a0', 'suggested', t.owner_id FROM tc, p, t RETURNING id
+    ), wu AS (
+      -- Dedicated warm-up row ('w*' positions, distinct id): its broadcasts warm the
+      -- realtime path but are excluded from every assertion by trip_place_id.
+      INSERT INTO trip_places (trip_city_id, poi_id, position, state, added_by)
+      SELECT tc.id, pw.id, 'w0', 'suggested', t.owner_id FROM tc, pw, t RETURNING id
     )
     SELECT
       (SELECT id FROM t) AS trip_id,
       (SELECT id FROM tp) AS place_id,
+      (SELECT id FROM wu) AS warmup_id,
       (SELECT id FROM u WHERE email = 'rt-demo-a@example.com') AS user_a,
       (SELECT id FROM u WHERE email = 'rt-demo-b@example.com') AS user_b
   `);
-  const { trip_id: tripId, place_id: placeId, user_a: userA, user_b: userB } = seed.rows[0];
+  const { trip_id: tripId, place_id: placeId, warmup_id: warmupId, user_a: userA, user_b: userB } = seed.rows[0];
   const topic = `trip:${tripId}`;
   console.log(`seeded trip ${tripId}, place ${placeId}`);
 
@@ -143,13 +153,34 @@ async function main() {
     check('presence: client A sees 2 entries', bothPresent(chA), `${Object.keys(chA.presenceState()).length} entries`);
     check('presence: client B sees 2 entries', bothPresent(chB), `${Object.keys(chB.presenceState()).length} entries`);
 
+    // Assertions only ever count broadcasts for the REAL place; warm-up traffic
+    // (warmupId) is filtered out so a stray warm-up message can never inflate a count.
+    const forPlace = (name) => received[name].filter((m) => m.trip_place_id === placeId);
+
+    // --- 2b. warm-up: defeat the cold-start subscription/WAL warm-up race ------
+    // On a freshly (re)started realtime container the FIRST DB-driven broadcast after
+    // SUBSCRIBE can be dropped while the replication slot / channel subscription is
+    // still warming up — later broadcasts always land, so the path is functional but
+    // step 3's single message is racy. Fire throwaway UPDATEs on the dedicated warm-up
+    // row (distinct id, distinct 'w*' position each attempt so every write is a real
+    // column change) and wait until BOTH clients observe one, retrying with short
+    // backoff. These messages are excluded from every assertion by trip_place_id.
+    const warmSeen = (name) => received[name].some((m) => m.trip_place_id === warmupId);
+    let warmedUp = false;
+    for (let attempt = 1; attempt <= 6 && !warmedUp; attempt++) {
+      await attributedUpdate(pool, userA, `UPDATE trip_places SET position = $2 WHERE id = $1`, [warmupId, `w${attempt}`]);
+      await waitFor(() => warmSeen('A') && warmSeen('B'), 2_500);
+      warmedUp = warmSeen('A') && warmSeen('B');
+    }
+    check('warm-up: both clients received a warm-up broadcast (realtime path live)', warmedUp);
+
     // --- 3. position UPDATE -> both clients get a zod-valid place_updated -----
     await attributedUpdate(pool, userA, `UPDATE trip_places SET position = 'a1' WHERE id = $1`, [placeId]);
-    await waitFor(() => received.A.length >= 1 && received.B.length >= 1, BROADCAST_TIMEOUT_MS);
-    check('broadcast: client A received place_updated', received.A.length >= 1);
-    check('broadcast: client B received place_updated', received.B.length >= 1);
+    await waitFor(() => forPlace('A').length >= 1 && forPlace('B').length >= 1, BROADCAST_TIMEOUT_MS);
+    check('broadcast: client A received place_updated', forPlace('A').length >= 1);
+    check('broadcast: client B received place_updated', forPlace('B').length >= 1);
 
-    const firstA = received.A[0];
+    const firstA = forPlace('A')[0];
     const parsed = firstA ? TripBroadcast.safeParse(firstA) : { success: false };
     check('broadcast: payload is zod-valid TripBroadcast', parsed.success,
       parsed.success ? 'place_updated' : JSON.stringify(parsed.error?.issues ?? firstA));
@@ -161,10 +192,11 @@ async function main() {
     received.B.length = 0;
     await attributedUpdate(pool, userA, `UPDATE trip_places SET state = 'must_do' WHERE id = $1`, [placeId]);
     await attributedUpdate(pool, userB, `UPDATE trip_places SET position = 'a2' WHERE id = $1`, [placeId]);
-    await waitFor(() => received.A.length >= 2, BROADCAST_TIMEOUT_MS);
+    await waitFor(() => forPlace('A').length >= 2, BROADCAST_TIMEOUT_MS);
 
-    const stateMsg = received.A.find((m) => m.state !== null);
-    const posMsg = received.A.find((m) => m.position !== null);
+    const msgsA = forPlace('A');
+    const stateMsg = msgsA.find((m) => m.state !== null);
+    const posMsg = msgsA.find((m) => m.position !== null);
     check('LWW: a state-only broadcast arrived (state set, position null)',
       !!stateMsg && stateMsg.state === 'must_do' && stateMsg.position === null && stateMsg.updated_by === userA,
       stateMsg ? `updated_by=${stateMsg.updated_by}` : 'missing');
