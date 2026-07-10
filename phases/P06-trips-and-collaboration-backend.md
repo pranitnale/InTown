@@ -78,6 +78,33 @@ contract revision, NOT changed here):
    no contract route returns them. P14 (curation decision cards) will need these
    counts exposed via an endpoint; a contract addition is required then.
 
+### ⚠️ DEFERRAL FLAG — realtime channels are PUBLIC and unauthenticated (harden before any user-facing token)
+
+The 0014 `intown_broadcast` sends with `private => false`, so the `trip:{id}`
+channels are **public** and channel subscription is **NOT authorized** — there is
+no channel-level membership check. This was a deliberate deferral: user-facing
+realtime JWTs do not exist yet (they arrive with the client work in **P07/P15**),
+so no untrusted party can even mint a token to subscribe today. It is safe **only**
+because `API_JWT_SECRET` never leaves the server.
+
+**BLOCKING for P07/P15 (and any deploy phase that mints user-facing realtime
+tokens):** before that happens, the trip channels MUST become **private** with
+`realtime.messages` authorization policies (or per-trip channel tokens). Otherwise
+any authenticated user — including a **removed** member — could subscribe to any
+trip's live channel and read its `place_*`, `plan_updated`, and attributed
+`vote_cast` events. Do not ship user-facing realtime tokens against public channels.
+
+### Equal-`at` broadcast ordering (LWW client contract for P07/P15)
+
+Broadcasts fired by the same transaction carry the **same** server `at` (now() is
+constant within a transaction). A rebalance rewrites the whole city in one
+transaction, so its N `place_updated` messages all share one `at`. The trigger now
+suppresses the transient sentinel park writes (`position LIKE '~%'`) so no bogus
+`~<uuid>` position ever crosses the wire, but the surviving equal-`at` rewrites
+remain. P07/P15 clients MUST therefore apply equal-`at` broadcasts in **arrival
+order** (a strict-greater-than `at` comparator alone is insufficient — treat equal
+timestamps as "the later-arriving message wins").
+
 ### Realtime dev-stack notes (backend/infra)
 
 Getting the pinned `supabase/realtime:v2.34.47` container to run the Broadcast-from-

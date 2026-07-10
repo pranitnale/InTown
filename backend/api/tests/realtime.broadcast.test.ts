@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 // channels.ts is not re-exported from @intown/contracts/api's barrel, so import the
 // frozen broadcast schema directly by path (vitest/vite resolves the .ts).
 import { TripBroadcast } from '../../../contracts/api/channels.ts';
+import { rebalanceTripCity } from '../src/ordering/fractional.ts';
 import {
   adminUrl,
   createAdminPool,
@@ -180,5 +181,86 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
     const parsed = TripBroadcast.safeParse(payload);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
     expect(payload).toMatchObject({ type: 'place_removed', trip_place_id: placeId, removed_by: bob.id });
+  });
+
+  it('a vote INSERT then upsert-flip both broadcast zod-valid vote_cast payloads', async () => {
+    const placeId = await addPlace(alice.id, poiIds[0]!, 'a1');
+    // INSERT (first vote) fires vote_cast; the votePlace upsert flips it via
+    // ON CONFLICT DO UPDATE, which is an UPDATE — the 0014 trigger fires on both.
+    await attributedWrite(
+      alice.id,
+      `INSERT INTO place_votes (trip_place_id, user_id, vote) VALUES ($1, $2, 'up')`,
+      [placeId, alice.id],
+    );
+    await attributedWrite(
+      alice.id,
+      `INSERT INTO place_votes (trip_place_id, user_id, vote) VALUES ($1, $2, 'down')
+         ON CONFLICT (trip_place_id, user_id) DO UPDATE SET vote = EXCLUDED.vote`,
+      [placeId, alice.id],
+    );
+
+    const payloads = await broadcasts('vote_cast');
+    expect(payloads.length).toBe(2);
+    for (const p of payloads) {
+      const parsed = TripBroadcast.safeParse(p);
+      expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+      expect(p).toMatchObject({ type: 'vote_cast', trip_place_id: placeId, user_id: alice.id });
+    }
+    // The insert carried 'up'; the upsert flip carried 'down'.
+    expect((payloads[0] as { vote: string }).vote).toBe('up');
+    expect((payloads[1] as { vote: string }).vote).toBe('down');
+  });
+
+  it('a plan_revisions INSERT broadcasts a zod-valid plan_updated', async () => {
+    const { rows } = await admin.query<{ id: string }>(
+      `INSERT INTO plan_revisions (trip_city_id, revision_index, reason, created_by)
+       VALUES ($1, 0, 'initial', $2) RETURNING id`,
+      [tripCityId, alice.id],
+    );
+    const revisionId = rows[0]!.id;
+
+    const [payload] = await broadcasts('plan_updated');
+    const parsed = TripBroadcast.safeParse(payload);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+    expect(payload).toMatchObject({
+      type: 'plan_updated',
+      trip_city_id: tripCityId,
+      plan_revision_id: revisionId,
+      reason: 'initial',
+    });
+  });
+
+  it('a rebalance emits NO sentinel (~) position broadcasts (only durable keys)', async () => {
+    // Two places on pathologically long keys — the input to a rebalance. The rebalance
+    // parks each on a '~'||id sentinel, then rewrites the durable keys. The trigger
+    // must suppress the sentinel park writes and broadcast only the durable rewrites.
+    const p1 = await addPlace(alice.id, poiIds[0]!, '1'.repeat(46));
+    const p2 = await addPlace(alice.id, poiIds[1]!, '2'.repeat(46));
+
+    const client = await admin.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', bob.id]);
+      await rebalanceTripCity(client, tripCityId);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const updates = await broadcasts('place_updated');
+    // The durable rewrites still broadcast (one per row); the sentinel parks do not.
+    expect(updates.length).toBe(2);
+    const updatedIds = new Set(updates.map((p) => (p as { trip_place_id: string }).trip_place_id));
+    expect(updatedIds).toEqual(new Set([p1, p2]));
+    for (const p of updates) {
+      const parsed = TripBroadcast.safeParse(p);
+      expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+      const pos = (p as { position: string | null }).position;
+      expect(pos).not.toBeNull();
+      expect(pos!.startsWith('~')).toBe(false);
+    }
   });
 });

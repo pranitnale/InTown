@@ -44,8 +44,13 @@ BEGIN
   IF to_regprocedure('realtime.send(jsonb,text,text,boolean)') IS NULL THEN
     RETURN;
   END IF;
-  -- private => false: these are server-authored broadcasts on a public-to-members
-  -- topic; channel-level membership is enforced by the API + RLS, not per-message.
+  -- private => false: these are PUBLIC channels — subscription is NOT authorized.
+  -- There is deliberately no channel-level membership check yet: user-facing realtime
+  -- JWTs do not exist until P07/P15, so private-channel authorization is a documented
+  -- deploy-phase deferral (see the P06 phase-file deferral flag). This is safe TODAY
+  -- only because API_JWT_SECRET never leaves the server — no untrusted party can mint
+  -- a token to subscribe. Before any phase mints user-facing tokens these MUST become
+  -- private with realtime.messages authorization policies (or per-trip channel tokens).
   PERFORM realtime.send(payload, event, 'trip:' || trip::text, false);
 END;
 $$;
@@ -75,6 +80,16 @@ BEGIN
       ));
     RETURN NEW;
   ELSIF TG_OP = 'UPDATE' THEN
+    -- Rebalance parks every row on a transient sentinel position ('~' || id, outside
+    -- the base62 alphabet) before laying down the real keys. Those park writes are
+    -- internal churn, not curation intent, and would emit a burst of 'place_updated'
+    -- messages carrying a bogus '~…' position — all with the same transaction `at`,
+    -- which a strict-greater LWW comparator could settle on. Suppress them: the
+    -- subsequent real-key rewrite broadcasts the durable position. Real ordering keys
+    -- are always base62, so a '~' prefix uniquely marks the sentinel.
+    IF NEW.position LIKE '~%' THEN
+      RETURN NEW;
+    END IF;
     -- Per-column LWW wire shape: a column is present only when it actually changed
     -- (IS DISTINCT FROM handles NULLs), otherwise null. A pure reorder carries only
     -- `position`; a state flip carries only `state`; the peer merges field-by-field.
