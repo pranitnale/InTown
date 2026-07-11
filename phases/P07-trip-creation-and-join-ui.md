@@ -41,10 +41,10 @@ cd frontend && npm run build && npm run lint && npm run typecheck && npm run tes
 ```
 
 ## Resume checklist
-- [ ] `/trips` list + role badges + New-trip CTA.
-- [ ] `/trips/new` wizard (city/dates/times → companions/ages → pace → budget → photo-swipe → accommodation → transport → must-see/avoid).
-- [ ] Endowed progress + one-question-per-screen + plan-shaping feedback.
-- [ ] Returning-user pre-filled "still you?" path.
-- [ ] Sign-in gate at research-start/save.
-- [ ] `/join/:code` landing (role preview → sign-in → join).
-- [ ] Contrast + unit tests; Verification commands green.
+- [x] `/trips` list + role badges + New-trip CTA. (`screens/TripsList.tsx` — `TripsListView`/`TripsRoute`, `components/RoleBadge.tsx`)
+- [x] `/trips/new` wizard (city/dates/times → companions/ages → pace → budget → photo-swipe → accommodation → transport → must-see/avoid). (`logic/wizard.ts`, `components/steps/*`, `screens/TripNew.tsx`)
+- [x] Endowed progress + one-question-per-screen + plan-shaping feedback. (`logic/wizard.ts` `wizardProgress`, `components/WizardShell.tsx`, `logic/feedback.ts`, `components/PlanShapingFeedback.tsx`)
+- [x] Returning-user pre-filled "still you?" path. (`components/StillYouCard.tsx`, `components/steps/TasteStep.tsx`, mock `returning` seed)
+- [x] Sign-in gate at research-start/save. (`logic/saveTrip.ts` `guardedSave`/`performSave`, auth barrel `useAuthGate`; router mounts `/trips/new` + `/join/:code` public)
+- [x] `/join/:code` landing (role preview → sign-in → join). (`screens/JoinLanding.tsx` — `JoinRoute`/`InvitePreviewCard`, `logic/invite.ts`)
+- [x] Contrast + unit tests; Verification commands green. (`__tests__/*` — api, wizard-logic, feedback, companions, gate, screens.render, contrast-guard; 274 tests pass, build+lint+typecheck green)
