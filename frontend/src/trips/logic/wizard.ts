@@ -110,9 +110,28 @@ export function patchAnswers(state: WizardState, patch: Partial<WizardAnswers>):
   return { ...state, answers: { ...state.answers, ...patch } };
 }
 
-/** The city step needs a real destination + both dates before advancing. */
+/**
+ * Inline validation message for the city-step date range — non-null only when
+ * both dates are set but departure falls before arrival. ISO calendar dates
+ * (YYYY-MM-DD) sort chronologically, so a plain string compare is correct here.
+ */
+export function dateRangeError(answers: WizardAnswers): string | null {
+  if (answers.arrive === '' || answers.depart === '') return null;
+  if (answers.depart < answers.arrive) return 'Departure can’t be before arrival.';
+  return null;
+}
+
+/**
+ * The city step needs a real destination + both dates, with departure on or
+ * after arrival (same-day allowed) before advancing.
+ */
 export function cityStepReady(answers: WizardAnswers): boolean {
-  return answers.city.trim().length > 0 && answers.arrive !== '' && answers.depart !== '';
+  return (
+    answers.city.trim().length > 0 &&
+    answers.arrive !== '' &&
+    answers.depart !== '' &&
+    answers.depart >= answers.arrive
+  );
 }
 
 /**

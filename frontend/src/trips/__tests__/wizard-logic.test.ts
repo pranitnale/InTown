@@ -8,6 +8,7 @@ import {
   canAdvance,
   cityStepReady,
   currentStepId,
+  dateRangeError,
   endowedReason,
   initWizard,
   isLastStep,
@@ -99,5 +100,40 @@ describe('trip wizard state machine (AC #2/#5)', () => {
     expect(buildCreateTripName(s.answers)).toBe('Porto');
     expect(buildCreateTripBody(s.answers)).toEqual({ name: 'Porto' });
     expect(buildCreateTripName(initWizard().answers)).toBe('New trip');
+  });
+});
+
+describe('city-step date-range validation (review SHOULD-FIX)', () => {
+  const withDates = (arrive: string, depart: string) =>
+    patchAnswers(initWizard(), { city: 'Porto', arrive, depart });
+
+  it('accepts a valid range (depart after arrive)', () => {
+    const s = withDates('2026-08-01', '2026-08-04');
+    expect(cityStepReady(s.answers)).toBe(true);
+    expect(canAdvance(s)).toBe(true);
+    expect(isReadyToSave(s)).toBe(true);
+    expect(dateRangeError(s.answers)).toBeNull();
+  });
+
+  it('blocks an inverted range (depart before arrive)', () => {
+    const s = withDates('2026-08-10', '2026-08-01');
+    expect(cityStepReady(s.answers)).toBe(false);
+    expect(canAdvance(s)).toBe(false);
+    expect(isReadyToSave(s)).toBe(false);
+    // advance is a no-op while the range is inverted
+    expect(advance(s).cursor).toBe(0);
+    expect(dateRangeError(s.answers)).toBe('Departure can’t be before arrival.');
+  });
+
+  it('allows a same-day trip (depart === arrive)', () => {
+    const s = withDates('2026-08-01', '2026-08-01');
+    expect(cityStepReady(s.answers)).toBe(true);
+    expect(canAdvance(s)).toBe(true);
+    expect(dateRangeError(s.answers)).toBeNull();
+  });
+
+  it('shows no range error until both dates are set', () => {
+    expect(dateRangeError(withDates('2026-08-01', '').answers)).toBeNull();
+    expect(dateRangeError(withDates('', '2026-08-01').answers)).toBeNull();
   });
 });

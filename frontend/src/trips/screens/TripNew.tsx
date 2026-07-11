@@ -21,8 +21,7 @@ import { ListsStep } from '../components/steps/ListsStep.tsx';
 import { PaceStep } from '../components/steps/PaceStep.tsx';
 import { TasteStep } from '../components/steps/TasteStep.tsx';
 import { TransportStep } from '../components/steps/TransportStep.tsx';
-import { pacePresetReason } from '../../onboarding/index.ts';
-import { activeAgeBand } from '../logic/companions.ts';
+import { pacePresetFor, pacePresetReason } from '../../onboarding/index.ts';
 import { planShapingFeedback } from '../logic/feedback.ts';
 import { guardedSave, performSave } from '../logic/saveTrip.ts';
 import {
@@ -146,12 +145,20 @@ function TripNew() {
       );
       break;
     case 'pace': {
-      const band = activeAgeBand(a.companions);
+      // The pace is only ever pre-filled from an age band while still unset, so
+      // the band that actually applied is a currently-selected band whose
+      // preset equals the current pace. Describe that band — and hide the
+      // reason once the pace no longer matches any selected band (user edited
+      // the pace, or cleared the bands) so the copy never contradicts the pace.
+      const appliedBand =
+        a.pace !== undefined
+          ? (a.companions.adultAgeBands.find((b) => pacePresetFor(b) === a.pace) ?? null)
+          : null;
       content = (
         <PaceStep
           value={a.pace}
           onChange={(p) => wz.patch({ pace: p })}
-          presetReason={band ? pacePresetReason(band) : undefined}
+          presetReason={appliedBand ? pacePresetReason(appliedBand) : undefined}
         />
       );
       break;

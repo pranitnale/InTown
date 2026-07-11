@@ -1,5 +1,5 @@
 import { Card, Input } from '../../../design-system/index.ts';
-import type { WizardAnswers } from '../../logic/wizard.ts';
+import { dateRangeError, type WizardAnswers } from '../../logic/wizard.ts';
 
 export interface CityDatesStepProps {
   answers: WizardAnswers;
@@ -17,6 +17,7 @@ const FIELD =
  * plans downstream.
  */
 export function CityDatesStep({ answers, patch }: CityDatesStepProps) {
+  const rangeError = dateRangeError(answers);
   return (
     <Card why="Your destination and dates are the only things we truly need." className="p-5">
       <h2 className="mb-1 text-lg font-semibold leading-tight text-text">Where and when?</h2>
@@ -69,6 +70,11 @@ export function CityDatesStep({ answers, patch }: CityDatesStepProps) {
             />
           </label>
         </div>
+        {rangeError ? (
+          <p role="alert" className="text-sm text-error">
+            {rangeError}
+          </p>
+        ) : null}
         <p className="text-xs text-text-tertiary">
           Times help us shape a lighter arrival day and a realistic departure day.
         </p>
