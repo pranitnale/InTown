@@ -35,7 +35,7 @@ Status legend: ⬜ not started · 🟨 in progress (branch) · ✅ merged.
 | P03 | Auth & consent UI | M2 | P01, P02 | frontend | M | ✅ |
 | P04 | Profiles backend | M2 | P02 | backend | M | ✅ |
 | P05 | Onboarding & profiles UI | M2 | P03, P04 | frontend | L | ✅ |
-| P06 | Trips & collaboration backend | M4 | P02 | backend | L | 🟨 claude/next-phase-implementation-4h33r2 |
+| P06 | Trips & collaboration backend | M4 | P02 | backend | L | ✅ |
 | P07 | Trip creation & join UI | M4 | P01 | frontend | M | ⬜ |
 | P08 | City Brain core | M3 | P00 | backend | L | ⬜ |
 | P09 | Ingestion I — structured sources | M3 | P08 | backend | M | ⬜ |
