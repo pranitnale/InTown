@@ -3,10 +3,10 @@ import { AppLayout } from '../app-shell/AppLayout.tsx';
 import { RequireAuth } from './RequireAuth.tsx';
 import { OnboardingRoute } from '../onboarding/index.ts';
 import { SettingsRoute } from '../settings/index.ts';
+import { TripsRoute, TripNewRoute, JoinRoute } from '../trips/index.ts';
 import {
   AuthScreen,
   HomeScreen,
-  JoinScreen,
   ModerationScreen,
   OfflineScreen,
   ReviewsPolicyScreen,
@@ -14,8 +14,6 @@ import {
   TripCurateScreen,
   TripDetailScreen,
   TripGeneratingScreen,
-  TripNewScreen,
-  TripsScreen,
 } from './placeholders.tsx';
 
 /**
@@ -26,6 +24,12 @@ import {
  * Gating: PUBLIC routes (`/auth/*`, `/offline`, `/reviews-policy`,
  * `/moderation`) sit directly under the layout; every other route is wrapped by
  * `<RequireAuth>`. P03 swaps the gate predicate — no route changes needed.
+ *
+ * P07 exception (§6.4/§6.3 gate placement): `/trips/new` (the setup wizard) and
+ * `/join/:code` (the invite landing) are PUBLIC — the sign-in gate sits at
+ * save/join (peak motivation), never before the quiz or the role preview. Those
+ * screens gate their own protected actions internally. The `/trips` list stays
+ * gated behind `<RequireAuth>`.
  */
 export const router = createBrowserRouter([
   {
@@ -36,6 +40,8 @@ export const router = createBrowserRouter([
       { path: 'offline', element: <OfflineScreen /> },
       { path: 'reviews-policy', element: <ReviewsPolicyScreen /> },
       { path: 'moderation', element: <ModerationScreen /> },
+      { path: 'trips/new', element: <TripNewRoute /> },
+      { path: 'join/:code', element: <JoinRoute /> },
 
       // ---- GATED (behind RequireAuth) ----
       {
@@ -43,9 +49,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <HomeScreen /> }, // '/'
           { path: 'onboarding', element: <OnboardingRoute /> },
-          { path: 'trips', element: <TripsScreen /> },
-          { path: 'trips/new', element: <TripNewScreen /> },
-          { path: 'join/:code', element: <JoinScreen /> },
+          { path: 'trips', element: <TripsRoute /> },
           { path: 'trips/:id', element: <TripDetailScreen /> },
           { path: 'trips/:id/curate', element: <TripCurateScreen /> },
           { path: 'trips/:id/city-brief', element: <TripCityBriefScreen /> },
