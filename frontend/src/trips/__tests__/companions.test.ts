@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  activeAgeBand,
   addKid,
   emptyCompanions,
   hasKids,
@@ -9,6 +10,7 @@ import {
   toggleAdultAgeBand,
   travelerCount,
 } from '../logic/companions.ts';
+import { pacePresetFor } from '../../onboarding/index.ts';
 
 describe('companions model (AC #2)', () => {
   it('starts with one adult, no kids, no age bands', () => {
@@ -44,6 +46,20 @@ describe('companions model (AC #2)', () => {
     expect(s.adultAgeBands).toEqual(['65+']);
     s = toggleAdultAgeBand(s, '65+');
     expect(s.adultAgeBands).toEqual([]);
+  });
+
+  it('exposes the active age band that drives the editable pace preset (AC #7)', () => {
+    // No band selected → no suggestion.
+    expect(activeAgeBand(emptyCompanions())).toBeNull();
+    // Selecting a band exposes it, and it maps to an editable pace preset.
+    const older = toggleAdultAgeBand(emptyCompanions(), '65+');
+    expect(activeAgeBand(older)).toBe('65+');
+    expect(pacePresetFor('65+')).toBe('relaxed');
+    // The most recently selected band wins (last in the list).
+    const both = toggleAdultAgeBand(older, '18-25');
+    expect(activeAgeBand(both)).toBe('18-25');
+    // Clearing it falls back to null (skippable — never a cap).
+    expect(activeAgeBand(toggleAdultAgeBand(both, '18-25'))).toBe('65+');
   });
 
   it('reports family mode + total head count', () => {

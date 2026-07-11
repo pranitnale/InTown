@@ -152,7 +152,10 @@ export function isReadyToSave(state: WizardState): boolean {
 export function wizardProgress(state: WizardState): WizardProgress {
   const total = WIZARD_STEPS.length;
   const completed = Math.min(total, state.cursor);
-  const cityDone = state.answers.city.trim().length > 0;
+  // "City selected ✓" only once the city step is genuinely COMPLETED (left
+  // behind, completed >= 1) — never while still on it with text typed, which
+  // would read the contradictory "City selected ✓ — 0 of N".
+  const cityDone = completed >= 1;
   const prefix = cityDone ? 'City selected ✓' : 'Let’s plan your trip';
   return {
     completed,

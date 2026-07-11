@@ -20,7 +20,7 @@ import { useTrips } from '../store/useTrips.ts';
 
 const noopSubscribe = () => () => {};
 
-type JoinStatus = 'loading' | 'ready' | 'notfound';
+type JoinStatus = 'loading' | 'ready' | 'notfound' | 'error';
 
 /**
  * `/join/:code` landing (§6.3, AC #6). Public → auth flow: the invite's role is
@@ -53,15 +53,23 @@ function JoinLanding() {
       setStatus('notfound');
       return;
     }
-    void trips.api.getInvite(code).then((p) => {
-      if (!active) return;
-      if (!p) {
-        setStatus('notfound');
-      } else {
-        setPreview(p);
-        setStatus('ready');
-      }
-    });
+    void trips.api
+      .getInvite(code)
+      .then((p) => {
+        if (!active) return;
+        if (!p) {
+          setStatus('notfound');
+        } else {
+          setPreview(p);
+          setStatus('ready');
+        }
+      })
+      // The TripsApi seam swaps for the live P06 client with no UI change, so
+      // the UI owns the transport-failure path — a rejecting getInvite must not
+      // leave the screen stuck on "Checking…" or throw an unhandled rejection.
+      .catch(() => {
+        if (active) setStatus('error');
+      });
     return () => {
       active = false;
     };
@@ -110,6 +118,17 @@ function JoinLanding() {
 
   if (status === 'loading') {
     return wrap(<p className="text-sm text-text-secondary">Checking your invite…</p>);
+  }
+
+  if (status === 'error') {
+    return wrap(
+      <Card why="We couldn’t reach the invite service just now." className="p-5">
+        <h1 className="mb-1 text-2xl font-bold leading-tight text-text">Couldn’t check this invite</h1>
+        <p className="text-base text-text-secondary">
+          Something went wrong reaching the invite. Refresh the page to try again.
+        </p>
+      </Card>,
+    );
   }
 
   if (status === 'notfound' || !preview) {

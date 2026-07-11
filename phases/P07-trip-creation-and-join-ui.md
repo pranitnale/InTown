@@ -47,4 +47,11 @@ cd frontend && npm run build && npm run lint && npm run typecheck && npm run tes
 - [x] Returning-user pre-filled "still you?" path. (`components/StillYouCard.tsx`, `components/steps/TasteStep.tsx`, mock `returning` seed)
 - [x] Sign-in gate at research-start/save. (`logic/saveTrip.ts` `guardedSave`/`performSave`, auth barrel `useAuthGate`; router mounts `/trips/new` + `/join/:code` public)
 - [x] `/join/:code` landing (role preview → sign-in → join). (`screens/JoinLanding.tsx` — `JoinRoute`/`InvitePreviewCard`, `logic/invite.ts`)
-- [x] Contrast + unit tests; Verification commands green. (`__tests__/*` — api, wizard-logic, feedback, companions, gate, screens.render, contrast-guard; 274 tests pass, build+lint+typecheck green)
+- [x] Contrast + unit tests; Verification commands green. (`__tests__/*` — api, wizard-logic, feedback, companions, gate, screens.render, contrast-guard; build+lint+typecheck green)
+- [x] Age chips pre-select an EDITABLE pace preset — never a cap (§6.2, AC #7). Selecting an adult age band sets an unset pace via P05 `pacePresetFor`, shows the `pacePresetReason` "starting point" line on the companions + pace steps, and the resulting pace produces a plan-shaping feedback line. (`logic/companions.ts` `activeAgeBand`, `components/steps/CompanionsStep.tsx`, `components/steps/PaceStep.tsx`, `screens/TripNew.tsx`)
+- [x] Honest endowment: the earned reason renders only once the city step is completed (`completed >= 1`); `wizardProgress` no longer reads "City selected ✓ — 0 of N" with a city typed but not yet advanced. (`logic/wizard.ts`, `screens/TripNew.tsx`)
+- [x] `/join/:code` owns the transport-failure path — a rejecting `getInvite` shows an error card instead of hanging on "Checking…". (`screens/JoinLanding.tsx`)
+- [x] Mock `getTasteSummary` zod-parses the fixture through `TasteProfile.pick(...)` (no `as` casts). (`api/mock.ts`)
+
+## Integration gap (for the P06+P07 merge)
+The `TripsApi` seam covers list / taste / create / invite / join with **no UI change** at merge. It does **not** yet carry trip DETAILS: the §6.4 wizard collects dates, arrival/departure times, accommodation anchor, transport, and taste, but the frozen §11 `CreateTripBody` carries only `name`, so `createTrip` persists only the city-derived name and the rest stays wizard-local. Adding §11 `trips.addCity` (arrive/depart/accommodation) + taste persistence to `api/types.ts` and the create flow is a **merge task** (its shape is owned by the P06 backend contract). Recorded in `frontend/src/trips/api/types.ts` (INTEGRATION GAP note).

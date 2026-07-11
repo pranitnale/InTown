@@ -1,6 +1,8 @@
-import { AGE_BAND_VALUES } from '@intown/contracts/types';
+import { AGE_BAND_VALUES, type Pace } from '@intown/contracts/types';
+import { pacePresetFor, pacePresetReason } from '../../../onboarding/index.ts';
 import { Button, Card, Chip, cn, FOCUS_RING } from '../../../design-system/index.ts';
 import {
+  activeAgeBand,
   addKid,
   removeKid,
   setAdults,
@@ -11,15 +13,23 @@ import {
 
 export interface CompanionsStepProps {
   companions: CompanionsState;
-  onChange: (next: CompanionsState) => void;
+  /**
+   * Applies the answer. `pacePreset` is the editable pace suggestion for the
+   * age band just selected (undefined when a band is cleared) — the caller
+   * pre-selects it on the pace step without capping the choice (§6.2).
+   */
+  onChange: (next: CompanionsState, pacePreset?: Pace) => void;
 }
 
 /**
  * Step 2 — companions (incl. kids' ages) + adult age bands (§6.4). Age chips
- * are SKIPPABLE and only pre-select an editable pace preset — never a cap
- * (§6.2 anti-ageism). Kids' ages help with ticket pricing & pacing.
+ * are SKIPPABLE and never a cap: selecting one pre-selects an editable pace
+ * preset (surfaced here as a "starting point" line, on the pace step, and in
+ * the plan-shaping feedback) that the user can freely change (§6.2
+ * anti-ageism). Kids' ages help with ticket pricing & pacing.
  */
 export function CompanionsStep({ companions, onChange }: CompanionsStepProps) {
+  const suggestedBand = activeAgeBand(companions);
   return (
     <Card why="Who’s coming shapes pacing, ticket prices, and family-friendly picks." className="p-5">
       <h2 className="mb-1 text-lg font-semibold leading-tight text-text">Who’s coming?</h2>
@@ -108,7 +118,11 @@ export function CompanionsStep({ companions, onChange }: CompanionsStepProps) {
                   key={band}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => onChange(toggleAdultAgeBand(companions, band))}
+                  onClick={() => {
+                    const next = toggleAdultAgeBand(companions, band);
+                    const nowSelected = next.adultAgeBands.includes(band);
+                    onChange(next, nowSelected ? pacePresetFor(band) : undefined);
+                  }}
                   className={cn('rounded-full', FOCUS_RING)}
                 >
                   <Chip variant={selected ? 'verified-visit' : 'because-you-said'} icon={null}>
@@ -118,6 +132,9 @@ export function CompanionsStep({ companions, onChange }: CompanionsStepProps) {
               );
             })}
           </div>
+          {suggestedBand ? (
+            <p className="text-xs text-text-secondary">{pacePresetReason(suggestedBand)}</p>
+          ) : null}
         </div>
       </div>
     </Card>

@@ -7,8 +7,19 @@ import type { CreateTripBody } from '@intown/contracts/api';
  * models the contract does not carry (the list needs the caller's role per
  * trip; the join landing needs a human invite preview). The live client lands
  * with the P06 backend at merge; this phase runs entirely against the mock, so
- * the merge flips one transport for the other with no UI change — mirroring
- * `ProfileApi` / `AuthApi`.
+ * the merge flips one transport for the other — mirroring `ProfileApi` /
+ * `AuthApi`.
+ *
+ * INTEGRATION GAP (recorded for the P06+P07 merge). The "no UI change at merge"
+ * story holds for the seam defined here — list / taste / create / invite / join.
+ * It does NOT yet cover trip DETAILS: the §6.4 wizard collects dates,
+ * arrival/departure times, accommodation anchor, transport, and taste, but the
+ * frozen §11 `CreateTripBody` carries only `name`, and there is no seam here for
+ * the rest. §11 `trips.addCity` (arrive/depart/accommodation) plus taste
+ * persistence must be added to this interface and to the create flow at the
+ * merge; until then `createTrip` persists only the city-derived name and the
+ * remaining answers are wizard-local. Extending the seam is a merge task
+ * because its shape is owned by the P06 backend contract, not inventable here.
  */
 
 /** A trip plus the current user's role in it — the shape the `/trips` list needs. */
@@ -39,7 +50,11 @@ export interface TripsApi {
   listTrips(): Promise<TripSummary[]>;
   /** Latest taste profile for the current user, or null on a first-ever trip. */
   getTasteSummary(): Promise<TasteSummary | null>;
-  /** Create a trip (caller becomes owner). */
+  /**
+   * Create a trip (caller becomes owner). Persists only the §11
+   * `CreateTripBody` (`name`); dates/times/accommodation/transport/taste are
+   * NOT yet carried — see the INTEGRATION GAP note above.
+   */
   createTrip(body: CreateTripBody): Promise<Trip>;
   /** Resolve an invite code to a preview, or null when the code is unknown. */
   getInvite(code: string): Promise<InvitePreview | null>;

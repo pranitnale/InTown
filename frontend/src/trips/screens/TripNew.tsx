@@ -21,6 +21,8 @@ import { ListsStep } from '../components/steps/ListsStep.tsx';
 import { PaceStep } from '../components/steps/PaceStep.tsx';
 import { TasteStep } from '../components/steps/TasteStep.tsx';
 import { TransportStep } from '../components/steps/TransportStep.tsx';
+import { pacePresetReason } from '../../onboarding/index.ts';
+import { activeAgeBand } from '../logic/companions.ts';
 import { planShapingFeedback } from '../logic/feedback.ts';
 import { guardedSave, performSave } from '../logic/saveTrip.ts';
 import {
@@ -129,12 +131,31 @@ function TripNew() {
       break;
     case 'companions':
       content = (
-        <CompanionsStep companions={a.companions} onChange={(c) => wz.patch({ companions: c })} />
+        <CompanionsStep
+          companions={a.companions}
+          onChange={(c, preset) =>
+            // Age band pre-selects an EDITABLE pace preset — never a cap (§6.2).
+            // Only fill an unset pace, so we never clobber a user's own choice.
+            wz.patch(
+              preset !== undefined && a.pace === undefined
+                ? { companions: c, pace: preset }
+                : { companions: c },
+            )
+          }
+        />
       );
       break;
-    case 'pace':
-      content = <PaceStep value={a.pace} onChange={(p) => wz.patch({ pace: p })} />;
+    case 'pace': {
+      const band = activeAgeBand(a.companions);
+      content = (
+        <PaceStep
+          value={a.pace}
+          onChange={(p) => wz.patch({ pace: p })}
+          presetReason={band ? pacePresetReason(band) : undefined}
+        />
+      );
       break;
+    }
     case 'budget':
       content = <BudgetStep value={a.budget} onChange={(b) => wz.patch({ budget: b })} />;
       break;
@@ -164,7 +185,9 @@ function TripNew() {
     <section className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <WizardShell
         progress={progress}
-        earnedReason={endowedReason()}
+        // Endowment is honest only once the city step is genuinely completed
+        // (left behind); before that there is nothing earned to state.
+        earnedReason={progress.completed >= 1 ? endowedReason() : ''}
         feedback={feedback}
         canBack={wz.wizard.cursor > 0}
         onBack={() => wz.prev()}

@@ -1,4 +1,4 @@
-import { Trip, TripMember, TripInvite } from '@intown/contracts/types';
+import { Trip, TripMember, TripInvite, TasteProfile } from '@intown/contracts/types';
 import type { CreateTripBody } from '@intown/contracts/api';
 import fixture from '../fixtures/trips.json';
 import { isInviteUsable } from '../logic/invite.ts';
@@ -69,13 +69,15 @@ export function createMockTripsApi(opts: MockTripsOptions = {}): TripsApi {
 
     async getTasteSummary(): Promise<TasteSummary | null> {
       if (!opts.returning) return null;
-      const t = fixture.returningTaste;
-      return {
-        interests: t.interests,
-        dietary: t.dietary,
-        pace: t.pace as TasteSummary['pace'],
-        budget_tier: t.budget_tier as TasteSummary['budget_tier'],
-      };
+      // Zod-parse the fixture through the frozen contract schema (no `as`
+      // casts) so the mock proves the UI consumes contract-shaped, validated
+      // taste data — matching this module's contract-validation claim above.
+      return TasteProfile.pick({
+        interests: true,
+        dietary: true,
+        pace: true,
+        budget_tier: true,
+      }).parse(fixture.returningTaste);
     },
 
     async createTrip(body: CreateTripBody): Promise<Trip> {

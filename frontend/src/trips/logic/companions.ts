@@ -3,8 +3,10 @@ import type { AgeBand } from '@intown/contracts/types';
 /**
  * Companions model (§6.4). Pure, DOM-free, unit-tested. Collects who is
  * travelling — adults, kids (by age, for ticket pricing & pacing), and the
- * adults' age bands. Age bands are SKIPPABLE and never a cap: they only
- * pre-select an editable pace preset downstream (§6.2 anti-ageism law).
+ * adults' age bands. Age bands are SKIPPABLE and never a cap: selecting one
+ * pre-selects an editable pace preset (`pacePresetFor`) that the pace step
+ * shows and the plan-shaping feedback reflects, and which the user can freely
+ * change to any pace (§6.2 anti-ageism law). See {@link activeAgeBand}.
  */
 export interface CompanionsState {
   /** Number of adults on the trip (at least 1 — the traveller themselves). */
@@ -41,6 +43,18 @@ export function setKidAge(state: CompanionsState, index: number, age: number): C
   if (index < 0 || index >= state.kids.length) return state;
   const clamped = Math.min(17, Math.max(0, Math.floor(age)));
   return { ...state, kids: state.kids.map((a, i) => (i === index ? clamped : a)) };
+}
+
+/**
+ * The age band currently driving the (editable) pace suggestion — the most
+ * recently selected band, or null when none is selected. Feeds
+ * `pacePresetFor` / `pacePresetReason` so the pace step pre-selects an editable
+ * default with a stated "starting point" reason (§6.2 — a suggestion, never a
+ * cap).
+ */
+export function activeAgeBand(state: CompanionsState): AgeBand | null {
+  const bands = state.adultAgeBands;
+  return bands.length > 0 ? (bands[bands.length - 1] ?? null) : null;
 }
 
 /** Toggle an adult age band on/off (skippable chips). */
