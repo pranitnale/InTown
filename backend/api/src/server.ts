@@ -9,6 +9,10 @@ import { registerAuthHandler } from './auth/handler.ts';
 import { registerConsentRoutes } from './auth/consents.ts';
 import { registerProfileRoutes } from './profile/routes.ts';
 import { registerAccountRoutes } from './account/routes.ts';
+import { registerTripRoutes } from './trips/routes.ts';
+import { registerTripMemberRoutes } from './trips/members.ts';
+import { registerTripInviteRoutes } from './trips/invites.ts';
+import { registerPlaceRoutes } from './places/routes.ts';
 
 export interface BuildServerOptions {
   /** Fastify logger config; defaults to off so tests stay quiet. */
@@ -51,6 +55,10 @@ export function buildServer(opts: BuildServerOptions = {}): FastifyInstance {
   registerConsentRoutes(app, pools);
   registerProfileRoutes(app, pools);
   registerAccountRoutes(app, pools);
+  registerTripRoutes(app, pools);
+  registerTripMemberRoutes(app, pools);
+  registerTripInviteRoutes(app, pools);
+  registerPlaceRoutes(app, pools);
 
   app.addHook('onClose', async () => {
     await closePools(pools);

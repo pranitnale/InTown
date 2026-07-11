@@ -1,5 +1,6 @@
 import pg from 'pg';
 import type { FastifyInstance } from 'fastify';
+import type { TripRole } from '@intown/contracts/types';
 import { loadEnv, type LoadedEnv } from '../../src/config/env.ts';
 import { createPools, type Pools } from '../../src/db/pool.ts';
 import { buildServer } from '../../src/server.ts';
@@ -58,12 +59,158 @@ export async function seedTwoUsers(admin: pg.Pool): Promise<SeededUsers> {
   return { a: USER_A, b: USER_B };
 }
 
-/** Truncate the auth + identity tables between tests. */
+/**
+ * Truncate the auth/identity tables plus the trips-domain + brain catalog tables
+ * the P06 seeders touch. CASCADE from `users` already reaches every user-FK
+ * table, but `cities`/`pois` are catalog rows with no user FK, so they are listed
+ * explicitly to guarantee a clean slate between tests.
+ */
 export async function resetTables(admin: pg.Pool): Promise<void> {
   await admin.query(
     `TRUNCATE consents, sessions, accounts, verification_token,
-              traveler_profiles, taste_profiles, users RESTART IDENTITY CASCADE`,
+              traveler_profiles, taste_profiles,
+              place_votes, trip_places, plan_revisions, stops,
+              intercity_legs, trip_invites, trip_members, trip_cities, trips,
+              pois, cities, users RESTART IDENTITY CASCADE`,
   );
+}
+
+/**
+ * Insert an extra user (superuser; bypasses RLS) with a server-generated uuid.
+ * Handy when a test needs a third party beyond {@link seedTwoUsers} (e.g. a
+ * non-member).
+ */
+export async function seedUser(admin: pg.Pool, email: string): Promise<SeededUser> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id`,
+    [email, email.split('@')[0]],
+  );
+  return { id: rows[0]!.id, email };
+}
+
+/**
+ * Seed one city plus `poiCount` POIs in it (superuser). The brain catalog tables
+ * carry no RLS, so trip-place seeding can reference these ids freely.
+ */
+export interface SeededCity {
+  cityId: string;
+  poiIds: string[];
+}
+export async function seedCityAndPoi(admin: pg.Pool, poiCount = 1): Promise<SeededCity> {
+  const { rows: cityRows } = await admin.query<{ id: string }>(
+    `INSERT INTO cities (name, bbox) VALUES ('Test City', '{}') RETURNING id`,
+  );
+  const cityId = cityRows[0]!.id;
+  const poiIds: string[] = [];
+  for (let i = 0; i < poiCount; i += 1) {
+    const { rows } = await admin.query<{ id: string }>(
+      `INSERT INTO pois (city_id, name, category, indoor_outdoor)
+       VALUES ($1, $2, 'MUSEUM', 'indoor') RETURNING id`,
+      [cityId, `POI ${i}`],
+    );
+    poiIds.push(rows[0]!.id);
+  }
+  return { cityId, poiIds };
+}
+
+export interface SeedTripMember {
+  userId: string;
+  role: TripRole;
+}
+export interface SeedTripOptions {
+  ownerId: string;
+  /** Extra members beyond the owner; the owner's `'owner'` row is always created. */
+  members?: SeedTripMember[];
+  /** When set, adds a single city stay and returns its id. */
+  cityId?: string;
+  name?: string;
+}
+export interface SeededTrip {
+  tripId: string;
+  tripCityId: string | null;
+}
+
+/**
+ * Seed a trip (superuser; bypasses RLS) with its owner membership row (the
+ * owner-is-always-a-member invariant), any additional members, and — when
+ * `cityId` is given — one city stay. Returns the trip id and the city-stay id.
+ */
+export async function seedTrip(admin: pg.Pool, opts: SeedTripOptions): Promise<SeededTrip> {
+  const { rows: tripRows } = await admin.query<{ id: string }>(
+    `INSERT INTO trips (owner_id, name) VALUES ($1, $2) RETURNING id`,
+    [opts.ownerId, opts.name ?? 'Test Trip'],
+  );
+  const tripId = tripRows[0]!.id;
+
+  await admin.query(
+    `INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'owner')`,
+    [tripId, opts.ownerId],
+  );
+  for (const m of opts.members ?? []) {
+    await admin.query(`INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, $3)`, [
+      tripId,
+      m.userId,
+      m.role,
+    ]);
+  }
+
+  let tripCityId: string | null = null;
+  if (opts.cityId) {
+    const { rows } = await admin.query<{ id: string }>(
+      `INSERT INTO trip_cities (trip_id, ord, city_id, arrive, depart)
+       VALUES ($1, 0, $2, '2026-01-01', '2026-01-02') RETURNING id`,
+      [tripId, opts.cityId],
+    );
+    tripCityId = rows[0]!.id;
+  }
+  return { tripId, tripCityId };
+}
+
+/** Seed a curated place in a city stay (superuser), attributed to `addedBy`. */
+export async function seedPlace(
+  admin: pg.Pool,
+  args: { tripCityId: string; poiId: string; addedBy: string; position?: string },
+): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO trip_places (trip_city_id, poi_id, position, added_by)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [args.tripCityId, args.poiId, args.position ?? 'a0', args.addedBy],
+  );
+  return rows[0]!.id;
+}
+
+/** Seed a single vote on a place (superuser). */
+export async function seedVote(
+  admin: pg.Pool,
+  tripPlaceId: string,
+  userId: string,
+  vote: 'up' | 'down',
+): Promise<void> {
+  await admin.query(`INSERT INTO place_votes (trip_place_id, user_id, vote) VALUES ($1, $2, $3)`, [
+    tripPlaceId,
+    userId,
+    vote,
+  ]);
+}
+
+/**
+ * Seed a live session for a user and return the `Cookie` header value that
+ * authenticates them (the dev/test cookie has no `__Secure-` prefix, matching
+ * `COOKIE_SECURE=false`). Extracted from the seeded-session-cookie pattern in
+ * profile.test.ts. Upserts so repeated calls with the same token stay valid.
+ */
+export async function sessionFor(
+  admin: pg.Pool,
+  userId: string,
+  token = `sess-${userId}`,
+): Promise<string> {
+  await admin.query(
+    `INSERT INTO sessions (session_token, user_id, expires)
+     VALUES ($1, $2, now() + interval '1 day')
+     ON CONFLICT (session_token) DO UPDATE SET user_id = EXCLUDED.user_id, expires = EXCLUDED.expires`,
+    [token, userId],
+  );
+  return `authjs.session-token=${token}`;
 }
 
 export interface TestServer {

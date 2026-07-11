@@ -23,6 +23,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@supabase/realtime-js": "^2.110.2",
     "@types/node": "catalog:",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8",
