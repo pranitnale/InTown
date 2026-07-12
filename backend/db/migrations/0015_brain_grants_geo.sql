@@ -24,6 +24,11 @@
 --   * agreement radius              = 100 m
 --   * first-traveler GPS decay tau  = 180 days (half-life-ish recency window)
 --   * accuracy penalty scale        = 50 m  (weight = 1/(1 + accuracy_m/50))
+--   * unknown-accuracy assumption   = 100 m  (NULL accuracy_m → assumed ~100 m,
+--     so weight = 1/(1 + 100/50) = 1/3; we must NOT treat an unstated accuracy
+--     as perfect, or an OSM/open-data row with no accuracy would outweigh a
+--     precise GPS fix. 100 m is a deliberately conservative "coarse but usable"
+--     default sitting just at the agreement-radius boundary.)
 --
 -- CAVEAT: the centroid is a weighted arithmetic mean of raw lat/lng, which is
 -- invalid near the antimeridian (±180° wrap) and the poles. This is acceptable
@@ -59,7 +64,13 @@ ALTER TABLE pois
 
 CREATE INDEX pois_merged_into_idx ON pois (merged_into) WHERE merged_into IS NOT NULL;
 
--- Trigram index for the 0016 name/alias similarity matcher.
+-- Trigram GIN index on pois.name. NOTE: this index does NOT accelerate the 0016
+-- similarity matcher — a `similarity(a, b) >= x` predicate cannot use a GIN
+-- gin_trgm_ops index (only the %, <->, and LIKE/ILIKE operator families can), and
+-- the matcher instead relies on a city + category-pruned sequential scan, which is
+-- fine at city scale. The real beneficiary is the /api/pois/search route
+-- (backend/api/src/pois/routes.ts), whose `name ILIKE '%q%'` filter this index
+-- accelerates via gin_trgm_ops.
 CREATE INDEX pois_name_trgm_gix ON pois USING gin (name gin_trgm_ops);
 
 -- ---------------------------------------------------------------------------
@@ -97,7 +108,7 @@ BEGIN
       o.confidence,
       o.source_kind,
       o.confidence
-        * (1.0 / (1.0 + coalesce(o.accuracy_m, 0) / 50.0))
+        * (1.0 / (1.0 + coalesce(o.accuracy_m, 100.0) / 50.0))  -- NULL accuracy → ~100 m, not perfect
         * CASE
             WHEN o.source_kind = 'first_traveler_gps'
               THEN exp(-(extract(epoch FROM (now() - o.observed_at)) / 86400.0) / 180.0)

@@ -154,6 +154,17 @@ $$;
 -- source_refs (dedup by whole element) and external_ids (kept wins on key
 -- conflict), redirects merged.merged_into → kept, and recomputes the coordinate
 -- (which now sees both POIs' observations). Facts/observations are left in place.
+--
+-- NO-CHAIN INVARIANT: merged_into always points at a canonical (never-merged)
+-- POI — chains (A→B→C) are impossible. This is what lets canon resolution
+-- (`coalesce(merged_into, id)`) and the merge-group scan
+-- (`id = canon OR merged_into = canon`) stay strictly one-hop. It is enforced two
+-- ways: `merged` must not already be merged (checked below), AND `merged` must
+-- have NO incoming redirects (no other POI points at it) — otherwise folding it
+-- into `kept` would strand its children one hop too deep. Attempting either
+-- RAISEs. OPERATIONAL WORKAROUND to re-parent a group: unmerge the children
+-- first (LIFO — newest merge first, see poi_unmerge), then merge in the desired
+-- order.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION poi_merge(p_kept uuid, p_merged uuid, p_reason text, p_actor text)
 RETURNS void
@@ -180,6 +191,15 @@ BEGIN
   IF v_kept.merged_into IS NOT NULL OR v_merged.merged_into IS NOT NULL THEN
     RAISE EXCEPTION 'poi already merged (kept.merged_into=%, merged.merged_into=%)',
       v_kept.merged_into, v_merged.merged_into USING ERRCODE = 'restrict_violation';
+  END IF;
+
+  -- NO-CHAIN INVARIANT: refuse to merge away a POI that other POIs point at.
+  -- Otherwise A→merged plus merged→kept would form the chain A→merged→kept, which
+  -- the one-hop canon resolution and merge-group scan cannot follow. Unmerge the
+  -- children first (LIFO), then merge in the desired order.
+  IF EXISTS (SELECT 1 FROM pois WHERE merged_into = p_merged) THEN
+    RAISE EXCEPTION 'cannot merge poi % away: it has incoming redirects (would create a merge chain)',
+      p_merged USING ERRCODE = 'restrict_violation';
   END IF;
 
   -- Journal the kept POI's pre-merge mergeable state for a faithful unmerge.
@@ -213,6 +233,15 @@ $$;
 -- poi_unmerge(merged) — reverse the latest live merge for `merged`. Restores the
 -- kept POI's snapshotted source_refs/external_ids, clears merged.merged_into,
 -- stamps the journal row undone, and recomputes BOTH POIs' coordinates.
+--
+-- LIFO-PER-KEPT REQUIREMENT: unmerges into a given kept POI must be undone in
+-- reverse order (newest merge first). kept_snapshot captures the kept POI's
+-- {source_refs, external_ids} as they were *before that one merge*; restoring an
+-- older snapshot would discard the unioned refs contributed by every later merge
+-- into the same kept POI. So if a LATER active merge into this same kept POI
+-- exists, we RAISE and require it be unmerged first. "Later" is ordered by the
+-- tie-safe tuple (merged_at, id) so simultaneous merged_at timestamps still have
+-- a deterministic order.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION poi_unmerge(p_merged uuid)
 RETURNS void
@@ -233,6 +262,20 @@ BEGIN
   END IF;
 
   v_kept := v_merge.kept_poi_id;
+
+  -- LIFO guard: kept_snapshot only faithfully restores the kept POI when this is
+  -- the newest active merge into it. A later active merge into the same kept POI
+  -- means undoing this one first would clobber that later merge's unioned refs, so
+  -- refuse. Order is tie-safe on (merged_at, id).
+  IF EXISTS (
+    SELECT 1 FROM poi_merges m
+    WHERE m.kept_poi_id = v_kept
+      AND m.undone_at IS NULL
+      AND (m.merged_at, m.id) > (v_merge.merged_at, v_merge.id)
+  ) THEN
+    RAISE EXCEPTION 'cannot unmerge poi % out of order: a later active merge into kept poi % must be unmerged first (LIFO)',
+      p_merged, v_kept USING ERRCODE = 'restrict_violation';
+  END IF;
 
   UPDATE pois
      SET source_refs  = v_merge.kept_snapshot -> 'source_refs',
