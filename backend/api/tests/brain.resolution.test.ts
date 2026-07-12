@@ -243,6 +243,84 @@ describe('Brain resolution — external-id / fuzzy / merge (AC3)', () => {
     ).rejects.toThrow();
   });
 
+  it('AC3.4b: no-chain guard — cannot merge away a POI with incoming redirects; unmerge-first is the workaround', async () => {
+    const aId = await seedPoi(admin, { cityId, name: 'A' });
+    const bId = await seedPoi(admin, { cityId, name: 'B' });
+    const cId = await seedPoi(admin, { cityId, name: 'C' });
+
+    // B ← A: A now redirects to B (B is canonical).
+    await admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [bId, aId]);
+    expect((await readPoi(admin, aId)).merged_into).toBe(bId);
+
+    // C ← B is refused: B has an incoming redirect (A→B), so folding B into C would
+    // strand A one hop too deep (A→B→C). The no-chain guard RAISEs.
+    await expect(
+      admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [cId, bId]),
+    ).rejects.toThrow(/incoming redirects|merge chain/);
+
+    // C ← A is ALSO refused, but by the pre-existing already-merged guard: A was
+    // already merged away, so its merged_into is non-null.
+    await expect(
+      admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [cId, aId]),
+    ).rejects.toThrow(/already merged/);
+
+    // Nothing changed: A still redirects to B, B/C still canonical.
+    expect((await readPoi(admin, aId)).merged_into).toBe(bId);
+    expect((await readPoi(admin, bId)).merged_into).toBeNull();
+    expect((await readPoi(admin, cId)).merged_into).toBeNull();
+
+    // WORKAROUND (documented on poi_merge): unmerge the child first, then C ← B
+    // succeeds because B no longer has an incoming redirect.
+    await admin.query(`SELECT poi_unmerge($1)`, [aId]);
+    await admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [cId, bId]);
+    expect((await readPoi(admin, bId)).merged_into).toBe(cId);
+    expect((await readPoi(admin, aId)).merged_into).toBeNull();
+  });
+
+  it('AC3.6b: LIFO unmerge guard — a later merge into the same kept POI must be unmerged first; then originals restore exactly', async () => {
+    const keptRefs = [{ source_kind: 'osm', external_id: 'way/10' }];
+    const keptExternal = { osm_id: 'way/10' };
+    const kId = await seedPoi(admin, {
+      cityId,
+      name: 'Kept',
+      externalIds: keptExternal,
+      sourceRefs: keptRefs,
+    });
+    const aId = await seedPoi(admin, {
+      cityId,
+      name: 'A',
+      externalIds: { wikidata_id: 'Q-A' },
+      sourceRefs: [{ source_kind: 'wikidata', external_id: 'Q-A' }],
+    });
+    const bId = await seedPoi(admin, {
+      cityId,
+      name: 'B',
+      externalIds: { google_place_id: 'g-B' },
+      sourceRefs: [{ source_kind: 'google', external_id: 'g-B' }],
+    });
+
+    // Two merges into the SAME kept POI, A first then B (B is the newer merge).
+    await admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [kId, aId]);
+    await admin.query(`SELECT poi_merge($1, $2, 'dup', 'test')`, [kId, bId]);
+
+    // Unmerging A (the older merge) first is refused: a later active merge (B) into
+    // the same kept POI exists, and A's snapshot would clobber B's unioned refs.
+    await expect(admin.query(`SELECT poi_unmerge($1)`, [aId])).rejects.toThrow(
+      /LIFO|must be unmerged first/,
+    );
+
+    // LIFO order works: newest (B) first, then A. Both succeed.
+    await admin.query(`SELECT poi_unmerge($1)`, [bId]);
+    await admin.query(`SELECT poi_unmerge($1)`, [aId]);
+
+    // Redirects cleared and kept's mergeable state restored to its pre-merge originals.
+    const kept = await readPoi(admin, kId);
+    expect((await readPoi(admin, aId)).merged_into).toBeNull();
+    expect((await readPoi(admin, bId)).merged_into).toBeNull();
+    expect(kept.source_refs).toEqual(keptRefs);
+    expect(kept.external_ids).toEqual(keptExternal);
+  });
+
   it('AC3.5: coord group — kept osm + merged wikidata 40 m apart become verified across the redirect', async () => {
     const keptId = await seedPoi(admin, { cityId, name: 'Kept' });
     const mergedId = await seedPoi(admin, { cityId, name: 'Merged' });
