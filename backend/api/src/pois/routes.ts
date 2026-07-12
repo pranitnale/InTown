@@ -36,6 +36,14 @@ import { registerRoute, type RouteHandler } from '../http/router.ts';
  * MERGE REDIRECT (§5.4): duplicate POIs point at their canonical head via
  * `merged_into`. List and search show only canonical rows (`merged_into IS
  * NULL`); the card resolves a merged id to its canonical head before assembling.
+ *
+ * MERGE-GROUP FOLDING (§5.4, 0016): `poi_merge` never moves facts/hours/reviews
+ * off the merged-away duplicate (facts are append-only; hours/reviews stay put).
+ * The no-chain invariant guarantees a group is exactly one hop — {canon} ∪
+ * {merged_into = canon} — so the card folds the whole group into its facts,
+ * hours, review list, and rating aggregate via the
+ * `id = $canon OR merged_into = $canon` subquery (mirroring poi_recompute_coord's
+ * group scan in 0015). Enrichment prefers the canonical row's per-language entry.
  */
 
 const DEFAULT_LIST_LIMIT = 200;
@@ -328,33 +336,43 @@ export function poiCardHandler(pools: Pools): RouteHandler {
     if (head.rowCount === 0) return notFound(reply, 'poi not found');
     const canon = head.rows[0]!.canon;
 
+    // Merge-group scan (§5.4): the canonical head plus every POI folded into it.
+    // The no-chain invariant (0016) keeps this strictly one hop, so a plain
+    // `id = $1 OR merged_into = $1` subquery captures the whole group.
+    const GROUP = `SELECT id FROM pois WHERE id = $1 OR merged_into = $1`;
+
     const [poiRes, factsRes, hoursRes, enrichRes, reviewsRes, aggRes] = await Promise.all([
       pools.appPool.query<PoiRow>(`SELECT ${POI_COLUMNS} FROM pois WHERE id = $1`, [canon]),
       pools.appPool.query<FactRow>(
         `SELECT ${FACT_COLUMNS} FROM facts
-          WHERE entity_kind = 'poi' AND entity_id = $1 AND status <> 'rejected'
-          ORDER BY attribute, observed_at DESC`,
+          WHERE entity_kind = 'poi' AND entity_id IN (${GROUP}) AND status <> 'rejected'
+          ORDER BY attribute, observed_at DESC, id`,
         [canon],
       ),
       pools.appPool.query<PoiHoursRow>(
         `SELECT ${HOURS_COLUMNS} FROM poi_hours
-          WHERE poi_id = $1
+          WHERE poi_id IN (${GROUP})
           ORDER BY day_of_week NULLS LAST, id`,
         [canon],
       ),
+      // If both the canonical POI and a merged duplicate carry an enrichment row
+      // for the same language, prefer the canonical one deterministically.
       pools.appPool.query<EnrichmentRow>(
-        `SELECT ${ENRICHMENT_COLUMNS} FROM poi_enrichment WHERE poi_id = $1 AND language = $2`,
+        `SELECT ${ENRICHMENT_COLUMNS} FROM poi_enrichment
+          WHERE poi_id IN (${GROUP}) AND language = $2
+          ORDER BY (poi_id = $1) DESC, id
+          LIMIT 1`,
         [canon, lang],
       ),
       pools.appPool.query<ReviewRow>(
         `SELECT ${REVIEW_COLUMNS} FROM reviews
-          WHERE poi_id = $1 AND status = 'published'
-          ORDER BY created_at DESC`,
+          WHERE poi_id IN (${GROUP}) AND status = 'published'
+          ORDER BY created_at DESC, id`,
         [canon],
       ),
       pools.appPool.query<{ rating_count: number; rating_avg: number | null }>(
         `SELECT count(*)::int AS rating_count, avg(rating)::float8 AS rating_avg
-           FROM reviews WHERE poi_id = $1 AND status = 'published'`,
+           FROM reviews WHERE poi_id IN (${GROUP}) AND status = 'published'`,
         [canon],
       ),
     ]);

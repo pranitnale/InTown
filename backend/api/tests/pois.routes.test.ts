@@ -112,6 +112,43 @@ describe('POI reads (AC6)', () => {
   });
 
   // -------------------------------------------------------------------------
+  // 2b. display gate — the THIRD state: single-source → 'approximate' + coord kept
+  // -------------------------------------------------------------------------
+  it('list/card keep a single-observation POI as approximate with a non-null coord (D52: kept but non-navigable)', async () => {
+    const cityId = await seedCity();
+    const poiId = await seedPoi(admin, { city_id: cityId, name: 'Single Source' });
+    // ONE observation → grounded but not cross-referenced (only 1 distinct source
+    // within 100 m): resolution 'approximate', coord retained (not nulled).
+    await seedGeoObservation(admin, {
+      poi_id: poiId,
+      source_kind: 'osm',
+      lat: 48.86,
+      lng: 2.34,
+      confidence: 0.9,
+    });
+
+    const list = await ts.app.inject({
+      method: 'GET',
+      url: `/api/pois?city_id=${cityId}`,
+      headers: { cookie },
+    });
+    expect(list.statusCode).toBe(200);
+    const listPoi = (list.json() as Poi[]).find((p) => p.id === poiId)!;
+    expect(listPoi.coord_resolution).toBe('approximate');
+    expect(listPoi.coord).not.toBeNull();
+
+    const card = await ts.app.inject({
+      method: 'GET',
+      url: `/api/pois/${poiId}/card`,
+      headers: { cookie },
+    });
+    expect(card.statusCode).toBe(200);
+    const cardPoi = (card.json() as PoiCard).poi;
+    expect(cardPoi.coord_resolution).toBe('approximate');
+    expect(cardPoi.coord).not.toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
   // 3. bbox + category + min_prominence filters
   // -------------------------------------------------------------------------
   it('bbox excludes out-of-box POIs and composes with category + min_prominence', async () => {
@@ -332,6 +369,79 @@ describe('POI reads (AC6)', () => {
     });
     expect(card.statusCode).toBe(200);
     expect((card.json() as PoiCard).poi.id).toBe(kept);
+  });
+
+  // -------------------------------------------------------------------------
+  // 6b. merge-group folding — poi_merge never moves facts/hours/reviews off the
+  // merged-away duplicate, so the card must fold the whole one-hop group.
+  // -------------------------------------------------------------------------
+  it('card folds the merge group: facts/hours/reviews/aggregate span both POIs; enrichment prefers canonical', async () => {
+    const cityId = await seedCity();
+    const kept = await seedPoi(admin, { city_id: cityId, name: 'Group Head' });
+    const merged = await seedPoi(admin, { city_id: cityId, name: 'Group Head' });
+
+    // Distinct facts on each side of the group.
+    await seedFact(admin, { entity_id: kept, attribute: 'price', value: { amount: 10 } });
+    await seedFact(admin, { entity_id: merged, attribute: 'phone', value: { number: '123' } });
+
+    // A poi_hours row on each side (distinct day_of_week).
+    await admin.query(
+      `INSERT INTO poi_hours (poi_id, day_of_week, opens, closes) VALUES ($1, 1, '09:00', '17:00')`,
+      [kept],
+    );
+    await admin.query(
+      `INSERT INTO poi_hours (poi_id, day_of_week, opens, closes) VALUES ($1, 2, '10:00', '18:00')`,
+      [merged],
+    );
+
+    // Enrichment for 'en' on BOTH — the canonical row must win deterministically.
+    await admin.query(
+      `INSERT INTO poi_enrichment (poi_id, language, significance) VALUES ($1, 'en', 'Canonical significance.')`,
+      [kept],
+    );
+    await admin.query(
+      `INSERT INTO poi_enrichment (poi_id, language, significance) VALUES ($1, 'en', 'Duplicate significance.')`,
+      [merged],
+    );
+
+    // Published reviews on each side (aggregate avg (4+2)/2 = 3, count 2).
+    await seedReview(admin, { poi_id: kept, user_id: users.a.id, rating: 4, status: 'published' });
+    await seedReview(admin, { poi_id: merged, user_id: users.b.id, rating: 2, status: 'published' });
+
+    // Fold merged into kept (admin pool = superuser owner).
+    await admin.query(`SELECT poi_merge($1, $2, $3, $4)`, [kept, merged, 'duplicate', 'test']);
+
+    // Probing EITHER id resolves to the same canonical card with the folded group.
+    for (const probe of [kept, merged]) {
+      const res = await ts.app.inject({
+        method: 'GET',
+        url: `/api/pois/${probe}/card?language=en`,
+        headers: { cookie },
+      });
+      expect(res.statusCode, `card(${probe})`).toBe(200);
+      const card = res.json() as PoiCard;
+
+      expect(card.poi.id, `card(${probe}) canonical head`).toBe(kept);
+
+      // Facts from BOTH sides are reachable.
+      expect(card.facts.map((f) => f.attribute).sort()).toEqual(['phone', 'price']);
+
+      // Hours from BOTH sides.
+      expect(card.hours).toHaveLength(2);
+      expect(card.hours.map((h) => h.day_of_week).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([
+        1, 2,
+      ]);
+
+      // Review list + aggregate span the whole group.
+      expect(card.reviews).toHaveLength(2);
+      expect(card.rating_count).toBe(2);
+      expect(card.rating_avg).toBe(3);
+
+      // Enrichment resolves canonical-first (not the duplicate's row).
+      expect(card.enrichment).not.toBeNull();
+      expect(card.enrichment!.poi_id).toBe(kept);
+      expect(card.enrichment!.significance).toBe('Canonical significance.');
+    }
   });
 
   // -------------------------------------------------------------------------
