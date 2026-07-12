@@ -8,7 +8,7 @@ migrations 0015/0016 is the single source of truth.
 from __future__ import annotations
 
 from .resolution import (
-    GEO_AGREEMENT_RADIUS_M,
+    FUZZY_MATCH_RADIUS_M,
     NAME_SIMILARITY_FLOOR,
     SQL_FUNCTIONS,
     poi_find_by_external_id,
@@ -22,7 +22,7 @@ from .resolution import (
 __all__ = [
     "SQL_FUNCTIONS",
     "NAME_SIMILARITY_FLOOR",
-    "GEO_AGREEMENT_RADIUS_M",
+    "FUZZY_MATCH_RADIUS_M",
     "poi_recompute_coord",
     "poi_geo_purge_expired",
     "poi_find_by_external_id",

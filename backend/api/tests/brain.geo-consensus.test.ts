@@ -238,6 +238,20 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     expect(rows[0]!.source_kind).toBe('google_fallback');
   });
 
+  it('AC5: a google_fallback observation WITHOUT expires_at is rejected at the schema level (D53 ToS law)', async () => {
+    const poiId = await seedPoi(admin, { cityId });
+    // ToS-limited rows MUST carry an expiry; omitting expires_at violates the
+    // poi_geo_obs_google_expires_chk CHECK constraint.
+    await expect(
+      admin.query(
+        `INSERT INTO poi_geo_observations
+           (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
+         VALUES ($1, 'google_fallback', $2, $3, 30, now(), NULL, 0.5)`,
+        [poiId, PORTO_LAT, PORTO_LNG],
+      ),
+    ).rejects.toThrow(/poi_geo_obs_google_expires_chk|violates check/);
+  });
+
   it('AC4: an expired google_fallback obs is excluded even before purge; poi_geo_purge_expired removes it and re-arms the guard', async () => {
     const poiId = await seedPoi(admin, { cityId });
     // Non-expiring osm obs (the only eligible source).

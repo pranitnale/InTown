@@ -66,12 +66,24 @@ CREATE INDEX pois_merged_into_idx ON pois (merged_into) WHERE merged_into IS NOT
 
 -- Trigram GIN index on pois.name. NOTE: this index does NOT accelerate the 0016
 -- similarity matcher — a `similarity(a, b) >= x` predicate cannot use a GIN
--- gin_trgm_ops index (only the %, <->, and LIKE/ILIKE operator families can), and
+-- gin_trgm_ops index (only the % and LIKE/ILIKE operator families can; <-> KNN is
+-- GiST-only), and
 -- the matcher instead relies on a city + category-pruned sequential scan, which is
 -- fine at city scale. The real beneficiary is the /api/pois/search route
 -- (backend/api/src/pois/routes.ts), whose `name ILIKE '%q%'` filter this index
 -- accelerates via gin_trgm_ops.
 CREATE INDEX pois_name_trgm_gix ON pois USING gin (name gin_trgm_ops);
+
+-- ---------------------------------------------------------------------------
+-- ToS law at the schema level (D53): a google_fallback observation is ToS-limited
+-- and MUST carry an expires_at, so it can never outlive its permitted retention.
+-- Enforced as a CHECK rather than left to application discipline — recompute
+-- already excludes google_fallback rows, but this guarantees none can be stored
+-- without an expiry in the first place.
+-- ---------------------------------------------------------------------------
+ALTER TABLE poi_geo_observations
+  ADD CONSTRAINT poi_geo_obs_google_expires_chk
+  CHECK (source_kind <> 'google_fallback' OR expires_at IS NOT NULL);
 
 -- ---------------------------------------------------------------------------
 -- poi_recompute_coord(p_poi_id) — re-derive the canonical coordinate + display

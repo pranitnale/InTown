@@ -65,7 +65,10 @@ SQL_FUNCTIONS: Final[dict[str, tuple[str, str]]] = {
 # Fuzzy-matcher tunables encoded in 0016 (documented here for callers deciding
 # whether a candidate clears the bar; the SQL remains authoritative).
 NAME_SIMILARITY_FLOOR: Final[float] = 0.45
-GEO_AGREEMENT_RADIUS_M: Final[int] = 150
+# Entity-resolution fuzzy-match radius: the geo gate on poi_match_candidates (a
+# candidate must sit within this distance when both coords are known). Distinct
+# from the 100 m geo-consensus AGREEMENT radius in 0015 — different concept.
+FUZZY_MATCH_RADIUS_M: Final[int] = 150
 
 _SEAM_MESSAGE: Final[str] = (
     "City Brain resolution/geo logic is DB-owned (migrations 0015/0016). "
@@ -140,7 +143,7 @@ def poi_unmerge(merged: str) -> None:
 __all__ = [
     "SQL_FUNCTIONS",
     "NAME_SIMILARITY_FLOOR",
-    "GEO_AGREEMENT_RADIUS_M",
+    "FUZZY_MATCH_RADIUS_M",
     "poi_recompute_coord",
     "poi_geo_purge_expired",
     "poi_find_by_external_id",

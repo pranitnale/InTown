@@ -25,7 +25,11 @@ CREATE TABLE poi_merges (
   reason        text,
   actor         text,
   merged_at     timestamptz NOT NULL DEFAULT now(),
-  undone_at     timestamptz
+  undone_at     timestamptz,
+  -- Monotonic insertion order. merged_at defaults to now(), which is txn-stable, so
+  -- two merges in one transaction tie on merged_at; seq is strictly increasing and
+  -- unique, giving poi_unmerge a deterministic LIFO order even within one txn.
+  seq           bigint      GENERATED ALWAYS AS IDENTITY
 );
 
 -- One live merge per kept POI is the common lookup; also index the merged side
@@ -240,8 +244,8 @@ $$;
 -- older snapshot would discard the unioned refs contributed by every later merge
 -- into the same kept POI. So if a LATER active merge into this same kept POI
 -- exists, we RAISE and require it be unmerged first. "Later" is ordered by the
--- tie-safe tuple (merged_at, id) so simultaneous merged_at timestamps still have
--- a deterministic order.
+-- monotonic `seq` identity alone (insertion-ordered and unique), so merges sharing
+-- a txn-stable merged_at timestamp still have a deterministic LIFO order.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION poi_unmerge(p_merged uuid)
 RETURNS void
@@ -253,7 +257,7 @@ BEGIN
   SELECT * INTO v_merge
   FROM poi_merges
   WHERE merged_poi_id = p_merged AND undone_at IS NULL
-  ORDER BY merged_at DESC
+  ORDER BY seq DESC
   LIMIT 1
   FOR UPDATE;
 
@@ -263,15 +267,20 @@ BEGIN
 
   v_kept := v_merge.kept_poi_id;
 
+  -- Lock the kept POI so a concurrent poi_merge into it (which locks the kept row
+  -- FOR UPDATE) serializes against this unmerge — closing the TOCTOU window where a
+  -- newer merge could slip in between the LIFO guard check and the snapshot restore.
+  PERFORM 1 FROM pois WHERE id = v_kept FOR UPDATE;
+
   -- LIFO guard: kept_snapshot only faithfully restores the kept POI when this is
   -- the newest active merge into it. A later active merge into the same kept POI
   -- means undoing this one first would clobber that later merge's unioned refs, so
-  -- refuse. Order is tie-safe on (merged_at, id).
+  -- refuse. Order is by the monotonic `seq` identity alone (insertion-ordered).
   IF EXISTS (
     SELECT 1 FROM poi_merges m
     WHERE m.kept_poi_id = v_kept
       AND m.undone_at IS NULL
-      AND (m.merged_at, m.id) > (v_merge.merged_at, v_merge.id)
+      AND m.seq > v_merge.seq
   ) THEN
     RAISE EXCEPTION 'cannot unmerge poi % out of order: a later active merge into kept poi % must be unmerged first (LIFO)',
       p_merged, v_kept USING ERRCODE = 'restrict_violation';
