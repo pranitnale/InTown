@@ -44,11 +44,19 @@ cd backend && npm run test && npm run lint && npm run typecheck
 ```
 
 ## Resume checklist
-- [ ] `pois` + `cities` entity model (canonical coord + confidence + verified_by + category enum).
-- [ ] `facts` atomic store (exact tuple, append-only).
-- [ ] Conflict-resolution hierarchy (per fact type, records selecting rule).
-- [ ] Entity resolution/dedup (external IDs → fuzzy → unverified) + merge/unmerge.
-- [ ] `poi_geo_observations` append-only + derived canonical coord + expiry purge.
-- [ ] Display gate (≥2 sources/100m → pin; else approximate/non-navigable).
-- [ ] Provenance-never-rewritten enforcement.
-- [ ] `GET /api/pois*`; tests; Verification commands green.
+- [x] `pois` + `cities` entity model (canonical coord + confidence + verified_by + category enum).
+- [x] `facts` atomic store (exact tuple, append-only).
+- [x] Conflict-resolution hierarchy (per fact type, records selecting rule).
+- [x] Entity resolution/dedup (external IDs → fuzzy → unverified) + merge/unmerge.
+- [x] `poi_geo_observations` append-only + derived canonical coord + expiry purge.
+- [x] Display gate (≥2 sources/100m → pin; else approximate/non-navigable).
+- [x] Provenance-never-rewritten enforcement.
+- [x] `GET /api/pois*`; tests; Verification commands green.
+
+## Session notes (P08 implementation)
+- All 6 acceptance criteria independently verified PASS (adversarial verifier, live probes on a fresh DB).
+- New migrations: `0015_brain_grants_geo.sql` (grants, pg_trgm, `pois.merged_into`, `poi_recompute_coord` + statement trigger, `poi_geo_purge_expired`, D53 CHECK `poi_geo_obs_google_expires_chk`), `0016_brain_resolution.sql` (`poi_merges` journal with `seq` LIFO ordering, `category_compatible`, `poi_find_by_external_id`, `poi_match_candidates`, `poi_merge`/`poi_unmerge` with no-chain + LIFO guards).
+- Conflict resolver: `backend/api/src/pois/conflict.ts` (`selectFact` → `{fact, rule}`, active-only selection, N=2 corroboration, 365d staleness).
+- Routes: `backend/api/src/pois/routes.ts` (list/search/card; card folds the one-hop merge group).
+- Python seam: `backend/workers/pipeline/pipeline/brain/` documents the SQL entry points; no duplicated logic.
+- **Follow-up (out of P08 scope, contracts frozen):** `contracts/fixtures/brain-slice/pois.json` has 4 pois (`…03/…05/…07/…09`) whose golden `coord_resolution`/`coord_verified_by` values contradict the 0015 coordinate law (single-source rows labelled `verified`). Needs a dedicated `phase/contracts-NN` mini-phase.
