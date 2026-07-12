@@ -37,7 +37,7 @@ Status legend: ⬜ not started · 🟨 in progress (branch) · ✅ merged.
 | P05 | Onboarding & profiles UI | M2 | P03, P04 | frontend | L | ✅ |
 | P06 | Trips & collaboration backend | M4 | P02 | backend | L | ✅ |
 | P07 | Trip creation & join UI | M4 | P01 | frontend | M | ✅ |
-| P08 | City Brain core | M3 | P00 | backend | L | ⬜ |
+| P08 | City Brain core | M3 | P00 | backend | L | 🟨 |
 | P09 | Ingestion I — structured sources | M3 | P08 | backend | M | ⬜ |
 | P10 | Ingestion II — web, media & safety | M3 | P09 | backend | L | ⬜ |
 | P11 | AI pipeline & job queue | M3 | P08 | backend | L | ⬜ |
