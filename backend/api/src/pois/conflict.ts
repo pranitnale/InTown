@@ -148,8 +148,11 @@ export function selectFact(
   facts: readonly Fact[],
   now: Date = new Date(),
 ): { fact: Fact; rule: SelectionRule } | null {
-  // 1. Rejected facts never win.
-  const active = facts.filter((f) => f.status !== 'rejected');
+  // 1. Only 'active' facts are selectable. This is a deliberate allow-list, not a
+  // reject-list: 'rejected' (invalidated), 'superseded' (retracted by a newer
+  // row), and 'disputed' (contested, not safely assertable) are ALL excluded, so
+  // none of them can ever be surfaced as the selected value.
+  const active = facts.filter((f) => f.status === 'active');
   if (active.length === 0) return null;
 
   // Guard: one attribute per call.
@@ -168,9 +171,12 @@ export function selectFact(
   // 3–6. Rules 1–3 winner.
   const base = selectBase(active, cls);
 
-  // Rule 4 override: a corroborated user correction outranks the base winner when
-  // it is newer, when the base citation is stale, or when the base winner is
-  // itself a user correction (the newest corroborated correction then governs).
+  // Rule 4 override: a corroborated user correction outranks the base winner ONLY
+  // when it is strictly newer than that winner OR the base citation is stale
+  // (observed_at older than STALE_DAYS). It never fires merely because the base
+  // winner is itself a correction — if the base (via rules 1–3) already IS the
+  // newest corroborated correction, it outranked nothing, so the rules-1-3 rule
+  // stands (e.g. 'newest_time_sensitive'), not 'verified_visitor_correction'.
   const corroborated = active.filter(
     (f) =>
       f.source_kind === 'user_correction' &&
@@ -180,8 +186,7 @@ export function selectFact(
     const correction = [...corroborated].sort(cmpNewest)[0]!;
     const correctionNewer = observedMs(correction) > observedMs(base.fact);
     const baseStale = observedMs(base.fact) < now.getTime() - STALE_DAYS * MS_PER_DAY;
-    const baseIsCorrection = base.fact.source_kind === 'user_correction';
-    if (correctionNewer || baseStale || baseIsCorrection) {
+    if (correctionNewer || baseStale) {
       return { fact: correction, rule: 'verified_visitor_correction' };
     }
   }

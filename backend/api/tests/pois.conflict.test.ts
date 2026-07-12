@@ -242,6 +242,54 @@ describe('selectFact: verified visitor correction (rule 4)', () => {
     expect(r.fact.id).toBe('c2');
     expect(r.rule).toBe('verified_visitor_correction');
   });
+
+  it('when the base winner is ITSELF the newest corroborated correction, the rules-1-3 rule stands (not rule 4)', () => {
+    // time_sensitive: the newest fact is already a corroborated correction, so
+    // rule 2 selects it. It outranked nothing, so the recorded rule stays
+    // 'newest_time_sensitive', NOT 'verified_visitor_correction'.
+    const olderBlog = makeFact({
+      id: 'b',
+      attribute: 'crowd_level',
+      source_kind: 'web_review',
+      observed_at: '2026-01-01T00:00:00Z',
+    });
+    const newestCorrection = makeFact({
+      id: 'c',
+      attribute: 'crowd_level',
+      source_kind: 'user_correction',
+      observed_at: '2026-06-01T00:00:00Z',
+      corroboration_count: USER_CORRECTION_MIN_CORROBORATION,
+    });
+    const r = selectFact([olderBlog, newestCorrection], NOW)!;
+    expect(r.fact.id).toBe('c');
+    expect(r.rule).toBe('newest_time_sensitive');
+    expect(r.rule).not.toBe('verified_visitor_correction');
+  });
+
+  it('an OLDER corroborated correction does NOT displace a NEWER under-corroborated one on a time-sensitive attribute', () => {
+    // Reviewer's failure scenario: the newest fact is an under-corroborated
+    // correction (count < N), so rule 2 selects it. An OLDER correction is
+    // corroborated (count >= N) but is not newer and the base is not stale, so
+    // rule 4 must NOT fire — the newest fact wins via 'newest_time_sensitive'.
+    const olderCorroborated = makeFact({
+      id: 'old',
+      attribute: 'crowd_level',
+      source_kind: 'user_correction',
+      observed_at: '2026-02-01T00:00:00Z',
+      corroboration_count: USER_CORRECTION_MIN_CORROBORATION,
+    });
+    const newestUnderCorroborated = makeFact({
+      id: 'new',
+      attribute: 'crowd_level',
+      source_kind: 'user_correction',
+      observed_at: '2026-06-01T00:00:00Z',
+      corroboration_count: USER_CORRECTION_MIN_CORROBORATION - 1,
+    });
+    const r = selectFact([olderCorroborated, newestUnderCorroborated], NOW)!;
+    expect(r.fact.id).toBe('new');
+    expect(r.rule).toBe('newest_time_sensitive');
+    expect(r.rule).not.toBe('verified_visitor_correction');
+  });
 });
 
 describe('selectFact: exclusion, defaults, guards, determinism', () => {
@@ -273,6 +321,57 @@ describe('selectFact: exclusion, defaults, guards, determinism', () => {
     ];
     expect(selectFact(allRejected, NOW)).toBeNull();
     expect(selectFact([], NOW)).toBeNull();
+  });
+
+  it('a SUPERSEDED higher-confidence fact loses to an active lower-confidence fact (no resurfacing)', () => {
+    // Reviewer's resurface scenario: a retracted (superseded) row must never be
+    // re-selected, even when its confidence beats the surviving active fact.
+    const supersededHigh = makeFact({
+      id: 's',
+      attribute: 'vibe',
+      confidence: 0.95,
+      observed_at: '2026-06-01T00:00:00Z',
+      status: 'superseded',
+    });
+    const activeLow = makeFact({
+      id: 'a',
+      attribute: 'vibe',
+      confidence: 0.3,
+      observed_at: '2026-01-01T00:00:00Z',
+      status: 'active',
+    });
+    const r = selectFact([supersededHigh, activeLow], NOW)!;
+    expect(r.fact.id).toBe('a');
+    expect(r.rule).toBe('recency_tolerant_experiential');
+  });
+
+  it('a DISPUTED fact never wins — a contested value is not asserted', () => {
+    const disputedOfficial = makeFact({
+      id: 'd',
+      attribute: 'hours',
+      source_kind: 'official_site',
+      observed_at: '2026-06-01T00:00:00Z',
+      status: 'disputed',
+    });
+    const activeBlog = makeFact({
+      id: 'b',
+      attribute: 'hours',
+      source_kind: 'web_review',
+      observed_at: '2026-05-01T00:00:00Z',
+      status: 'active',
+    });
+    const r = selectFact([disputedOfficial, activeBlog], NOW)!;
+    expect(r.fact.id).toBe('b');
+    expect(r.rule).toBe('newest_time_sensitive');
+  });
+
+  it('returns null when NO fact is active (superseded / disputed / rejected all excluded)', () => {
+    const nonActive = [
+      makeFact({ id: 's', status: 'superseded' }),
+      makeFact({ id: 'd', status: 'disputed' }),
+      makeFact({ id: 'r', status: 'rejected' }),
+    ];
+    expect(selectFact(nonActive, NOW)).toBeNull();
   });
 
   it('defaults an unknown attribute to experiential (confidence-led)', () => {
