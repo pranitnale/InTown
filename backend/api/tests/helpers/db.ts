@@ -61,9 +61,16 @@ export async function seedTwoUsers(admin: pg.Pool): Promise<SeededUsers> {
 
 /**
  * Truncate the auth/identity tables plus the trips-domain + brain catalog tables
- * the P06 seeders touch. CASCADE from `users` already reaches every user-FK
+ * the P06/P08 seeders touch. CASCADE from `users` already reaches every user-FK
  * table, but `cities`/`pois` are catalog rows with no user FK, so they are listed
  * explicitly to guarantee a clean slate between tests.
+ *
+ * The Brain log/aggregate tables (`facts`, `poi_hours`, `poi_enrichment`,
+ * `poi_geo_observations`, `reviews`, `poi_merges`) are listed too: `facts` has no
+ * FK to `pois` (polymorphic entity_id), so a `pois` cascade would miss it, and
+ * naming the rest keeps the reset explicit. TRUNCATE fires only TRUNCATE-level
+ * triggers, so the append-only row guards on `facts`/`poi_geo_observations`
+ * (0010, BEFORE UPDATE/DELETE FOR EACH ROW) never block it.
  */
 export async function resetTables(admin: pg.Pool): Promise<void> {
   await admin.query(
@@ -71,7 +78,8 @@ export async function resetTables(admin: pg.Pool): Promise<void> {
               traveler_profiles, taste_profiles,
               place_votes, trip_places, plan_revisions, stops,
               intercity_legs, trip_invites, trip_members, trip_cities, trips,
-              pois, cities, users RESTART IDENTITY CASCADE`,
+              poi_merges, poi_geo_observations, facts, poi_hours, poi_enrichment,
+              reviews, pois, cities, users RESTART IDENTITY CASCADE`,
   );
 }
 
@@ -191,6 +199,155 @@ export async function seedVote(
     userId,
     vote,
   ]);
+}
+
+// ---------------------------------------------------------------------------
+// Brain seed helpers (P08). All run on the superuser admin pool: the Brain
+// catalog + append-only logs are owner-written (the app role only has SELECT),
+// and the append-only guards (0010) block direct client INSERT-aside writes, not
+// plain INSERTs, so seeding a fresh row is fine.
+// ---------------------------------------------------------------------------
+
+export interface SeedPoiOptions {
+  city_id: string;
+  name: string;
+  /** Defaults to 'MUSEUM'. */
+  category?: string;
+  /** Defaults to 'indoor'. */
+  indoor_outdoor?: string;
+  aliases?: string[];
+  /** Normalized significance in [0,1]; defaults to 0. */
+  prominence?: number;
+  external_ids?: Record<string, unknown>;
+}
+
+/** Seed one canonical POI (superuser); returns its id. Coord stays ungrounded (null). */
+export async function seedPoi(admin: pg.Pool, opts: SeedPoiOptions): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO pois (city_id, name, category, indoor_outdoor, aliases, prominence, external_ids)
+     VALUES ($1, $2, $3::category, $4::indoor_outdoor, $5, $6, $7)
+     RETURNING id`,
+    [
+      opts.city_id,
+      opts.name,
+      opts.category ?? 'MUSEUM',
+      opts.indoor_outdoor ?? 'indoor',
+      opts.aliases ?? [],
+      opts.prominence ?? 0,
+      JSON.stringify(opts.external_ids ?? {}),
+    ],
+  );
+  return rows[0]!.id;
+}
+
+export interface SeedFactOptions {
+  entity_id: string;
+  attribute: string;
+  /** Defaults to 'poi'. */
+  entity_kind?: string;
+  value?: unknown;
+  source_url?: string | null;
+  /** Defaults to 'official_site'. */
+  source_kind?: string;
+  /** ISO timestamp; defaults to now(). */
+  observed_at?: string;
+  confidence?: number;
+  corroboration_count?: number;
+  /** Defaults to 'active'. */
+  status?: string;
+}
+
+/** Seed one atomic fact (superuser, append-only INSERT); returns its id. */
+export async function seedFact(admin: pg.Pool, opts: SeedFactOptions): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO facts
+       (entity_kind, entity_id, attribute, value, source_url, source_kind,
+        observed_at, confidence, corroboration_count, status)
+     VALUES ($1::fact_entity_kind, $2, $3, $4, $5, $6::fact_source_kind,
+             coalesce($7::timestamptz, now()), $8, $9, $10::fact_status)
+     RETURNING id`,
+    [
+      opts.entity_kind ?? 'poi',
+      opts.entity_id,
+      opts.attribute,
+      opts.value === undefined ? null : JSON.stringify(opts.value),
+      opts.source_url ?? null,
+      opts.source_kind ?? 'official_site',
+      opts.observed_at ?? null,
+      opts.confidence ?? 0.8,
+      opts.corroboration_count ?? 0,
+      opts.status ?? 'active',
+    ],
+  );
+  return rows[0]!.id;
+}
+
+export interface SeedGeoObservationOptions {
+  poi_id: string;
+  source_kind: string;
+  lat: number;
+  lng: number;
+  accuracy_m?: number | null;
+  /** ISO timestamp; defaults to now(). */
+  observed_at?: string;
+  expires_at?: string | null;
+  confidence?: number;
+}
+
+/**
+ * Seed one geo-observation (superuser, append-only INSERT). The 0015 AFTER
+ * INSERT trigger recomputes the POI's coord + display gate on commit; returns the
+ * observation id.
+ */
+export async function seedGeoObservation(
+  admin: pg.Pool,
+  opts: SeedGeoObservationOptions,
+): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO poi_geo_observations
+       (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
+     VALUES ($1, $2::geo_source_kind, $3, $4, $5, coalesce($6::timestamptz, now()), $7, $8)
+     RETURNING id`,
+    [
+      opts.poi_id,
+      opts.source_kind,
+      opts.lat,
+      opts.lng,
+      opts.accuracy_m ?? null,
+      opts.observed_at ?? null,
+      opts.expires_at ?? null,
+      opts.confidence ?? 0.9,
+    ],
+  );
+  return rows[0]!.id;
+}
+
+export interface SeedReviewOptions {
+  poi_id: string;
+  user_id: string;
+  rating: number;
+  text?: string | null;
+  verified_visit?: boolean;
+  /** Defaults to 'published'. */
+  status?: string;
+}
+
+/** Seed one review (superuser); returns its id. */
+export async function seedReview(admin: pg.Pool, opts: SeedReviewOptions): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `INSERT INTO reviews (poi_id, user_id, rating, text, verified_visit, status)
+     VALUES ($1, $2, $3, $4, $5, $6::review_status)
+     RETURNING id`,
+    [
+      opts.poi_id,
+      opts.user_id,
+      opts.rating,
+      opts.text ?? null,
+      opts.verified_visit ?? false,
+      opts.status ?? 'published',
+    ],
+  );
+  return rows[0]!.id;
 }
 
 /**

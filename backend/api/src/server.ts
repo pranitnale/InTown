@@ -13,6 +13,7 @@ import { registerTripRoutes } from './trips/routes.ts';
 import { registerTripMemberRoutes } from './trips/members.ts';
 import { registerTripInviteRoutes } from './trips/invites.ts';
 import { registerPlaceRoutes } from './places/routes.ts';
+import { registerPoiRoutes } from './pois/routes.ts';
 
 export interface BuildServerOptions {
   /** Fastify logger config; defaults to off so tests stay quiet. */
@@ -59,6 +60,7 @@ export function buildServer(opts: BuildServerOptions = {}): FastifyInstance {
   registerTripMemberRoutes(app, pools);
   registerTripInviteRoutes(app, pools);
   registerPlaceRoutes(app, pools);
+  registerPoiRoutes(app, pools);
 
   app.addHook('onClose', async () => {
     await closePools(pools);
