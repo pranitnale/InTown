@@ -17,8 +17,10 @@ machinery live once, in SQL, and both the TypeScript API (P09) and this pipeline
 | `poi_unmerge(merged)` | `0016_brain_resolution.sql` | Reverse the latest live merge. |
 
 `resolution.SQL_FUNCTIONS` mirrors this table in code (name → migration +
-signature). The Python callables are documented `NotImplementedError` stubs; a
-later phase wires them to a real DB connection, e.g.:
+signature). The documented callables remain guard stubs so no second Python
+implementation can drift from SQL. P09's
+`ingestion.repository.PsycopgCityBrainRepository` invokes these functions over
+its real connection, e.g.:
 
 ```python
 cur.execute("SELECT poi_find_by_external_id(%s, %s, %s)", (city_id, key, value))

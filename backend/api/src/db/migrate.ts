@@ -2,6 +2,11 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import pg from 'pg';
+import {
+  DEV_DEFAULT_APP_DATABASE_URL,
+  DEV_DEFAULT_AUTH_DATABASE_URL,
+  DEV_DEFAULT_DB_PASSWORDS,
+} from '../config/env.ts';
 
 const { Client } = pg;
 
@@ -11,6 +16,95 @@ const { Client } = pg;
  * constant — just needs to be stable across deploys.
  */
 const MIGRATION_LOCK_KEY = 908_741_001;
+
+export type DatabaseRoleName = 'intown_auth' | 'intown_app';
+
+export interface DatabaseRoleCredential {
+  role: DatabaseRoleName;
+  password: string;
+}
+
+/** Parse one application-role connection URL without exposing the URL in errors. */
+function credentialFromUrl(
+  field: 'AUTH_DATABASE_URL' | 'APP_DATABASE_URL',
+  raw: string | undefined,
+  expectedRole: DatabaseRoleName,
+  isProduction: boolean,
+): DatabaseRoleCredential {
+  if (!raw || raw.trim() === '') {
+    throw new Error(`${field} is required to provision database roles`);
+  }
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`${field} must be a valid PostgreSQL connection URL`);
+  }
+  if (url.protocol !== 'postgresql:' && url.protocol !== 'postgres:') {
+    throw new Error(`${field} must use the postgresql protocol`);
+  }
+  if (decodeURIComponent(url.username) !== expectedRole) {
+    throw new Error(`${field} must authenticate as ${expectedRole}`);
+  }
+
+  let password: string;
+  try {
+    password = decodeURIComponent(url.password);
+  } catch {
+    throw new Error(`${field} contains an invalid percent-encoded password`);
+  }
+  if (password.length === 0) {
+    throw new Error(`${field} must contain a non-empty password`);
+  }
+  if (password.includes('\0')) {
+    throw new Error(`${field} password must not contain NUL bytes`);
+  }
+  if (isProduction && (password.length < 16 || DEV_DEFAULT_DB_PASSWORDS.includes(password))) {
+    throw new Error(`${field} must contain a non-default password of at least 16 characters`);
+  }
+
+  return { role: expectedRole, password };
+}
+
+/**
+ * Resolve the two login credentials the migration runner installs. Production
+ * has no fallback: both URLs must be explicit, role-correct, and non-default.
+ */
+export function loadDatabaseRoleCredentials(
+  source: NodeJS.ProcessEnv = process.env,
+): readonly DatabaseRoleCredential[] {
+  const isProduction = source.NODE_ENV === 'production';
+  const authUrl =
+    source.AUTH_DATABASE_URL ?? (isProduction ? undefined : DEV_DEFAULT_AUTH_DATABASE_URL);
+  const appUrl =
+    source.APP_DATABASE_URL ?? (isProduction ? undefined : DEV_DEFAULT_APP_DATABASE_URL);
+  return Object.freeze([
+    credentialFromUrl('AUTH_DATABASE_URL', authUrl, 'intown_auth', isProduction),
+    credentialFromUrl('APP_DATABASE_URL', appUrl, 'intown_app', isProduction),
+  ]);
+}
+
+interface RoleProvisionClient {
+  query(queryText: string, values?: readonly unknown[]): Promise<unknown>;
+}
+
+/**
+ * Install role passwords through the locked-down SQL boundary from 0017. Values
+ * remain bind parameters: they are never interpolated into query text or logged.
+ * Calling this repeatedly is intentionally idempotent.
+ */
+export async function provisionDatabaseRoles(
+  client: RoleProvisionClient,
+  credentials: readonly DatabaseRoleCredential[],
+): Promise<void> {
+  const byRole = new Map(credentials.map((credential) => [credential.role, credential]));
+  for (const role of ['intown_auth', 'intown_app'] as const) {
+    const credential = byRole.get(role);
+    if (!credential) throw new Error(`Missing credential for ${role}`);
+    await client.query('SELECT public.intown_provision_role($1, $2)', [role, credential.password]);
+  }
+}
 
 /**
  * The canonical migrations directory (§18.3 — ONE ordered chain, never a
@@ -39,6 +133,7 @@ export function orderMigrationFiles(filenames: string[]): string[] {
 export async function runMigrations(
   databaseUrl: string,
   migrationsDir: string = MIGRATIONS_DIR,
+  roleCredentials: readonly DatabaseRoleCredential[] = loadDatabaseRoleCredentials(),
 ): Promise<{ applied: string[]; skipped: string[] }> {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
@@ -89,6 +184,11 @@ export async function runMigrations(
         }
       }
 
+      // Provision only after every schema migration committed. Migration 0017
+      // clears legacy committed passwords first, making an interrupted rollout
+      // fail closed; this step installs environment-only credentials explicitly.
+      await provisionDatabaseRoles(client, roleCredentials);
+
       console.log(
         `[migrate] done — ${result.applied.length} applied, ${result.skipped.length} already present.`,
       );
@@ -108,7 +208,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   try {
-    await runMigrations(databaseUrl);
+    // Validate both role credentials before opening/changing the database.
+    const roleCredentials = loadDatabaseRoleCredentials(process.env);
+    await runMigrations(databaseUrl, MIGRATIONS_DIR, roleCredentials);
   } catch {
     process.exit(1);
   }

@@ -117,6 +117,14 @@ export const PoiGeoObservation = z.object({
   id: Uuid,
   poi_id: Uuid,
   source_kind: GeoSourceKind,
+  /** Normalized upstream provider namespace (for example `openstreetmap`). */
+  source_provider: z
+    .string()
+    .min(2)
+    .max(100)
+    .regex(/^[a-z0-9][a-z0-9._-]*$/),
+  /** Durable record identity within that provider (for example `node/123`). */
+  source_record_id: z.string().min(1).max(500),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   accuracy_m: z.number().nonnegative().nullable(),

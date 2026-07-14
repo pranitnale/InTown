@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 import type { StoreApi, UseBoundStore } from 'zustand';
 import type { User } from '@intown/contracts/types';
-import type { AuthApi } from '../api/index.ts';
+import type { AuthApi, SessionInfo } from '../api/index.ts';
 import { SessionExpiredError } from '../api/index.ts';
 import type { AuthNavigator } from '../navigation.ts';
 
-export type SessionStatus = 'anonymous' | 'authenticated' | 'expired';
+export type SessionStatus =
+  | 'loading'
+  | 'anonymous'
+  | 'authenticated'
+  | 'expired'
+  | 'unavailable';
 
 const SIGN_IN_PATH = '/auth/sign-in';
 
@@ -56,8 +61,23 @@ function clearRedirect(storage: RedirectStorage | null): void {
   }
 }
 
+/** Keep post-auth navigation same-origin and path-based. */
+export function normalizeReturnPath(path: string | null | undefined): string {
+  if (!path) return '/';
+  const candidate = path.trim();
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return '/';
+  try {
+    const parsed = new URL(candidate, 'https://intown.invalid');
+    if (parsed.origin !== 'https://intown.invalid') return '/';
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return '/';
+  }
+}
+
 export interface SessionState {
   status: SessionStatus;
+  error: string | null;
   user: User | null;
   /** Path to return to after a successful auth (captured at the gate). */
   redirectTo: string | null;
@@ -103,9 +123,11 @@ export function createSessionStore({
 }: SessionStoreDeps): SessionStore {
   const persist =
     redirectStorage === undefined ? detectRedirectStorage() : redirectStorage;
+  let sessionRevision = 0;
 
   return create<SessionState>((set, get) => ({
-    status: 'anonymous',
+    status: 'loading',
+    error: null,
     user: null,
     redirectTo: null,
     pendingResume: null,
@@ -116,23 +138,35 @@ export function createSessionStore({
       // in-memory closure and CANNOT survive a reload — replaying the gated
       // action after landing is wired at the P02 merge (documented
       // integration point), not solved here.
-      writeRedirect(persist, fromPath);
-      set({ redirectTo: fromPath, pendingResume: resume ?? null });
+      const target = normalizeReturnPath(fromPath);
+      writeRedirect(persist, target);
+      set({ redirectTo: target, pendingResume: resume ?? null });
     },
 
     async refresh() {
-      const info = await api.getSession();
+      const revision = ++sessionRevision;
+      set({ status: 'loading', error: null });
+      let info: SessionInfo;
+      try {
+        info = await api.getSession();
+      } catch (err) {
+        if (revision !== sessionRevision) return;
+        throw err;
+      }
+      if (revision !== sessionRevision) return;
       if (info.status === 'authenticated') {
-        set({ status: 'authenticated', user: info.user });
+        set({ status: 'authenticated', error: null, user: info.user });
       } else if (info.status === 'expired') {
         get().reportExpired();
       } else {
-        set({ status: 'anonymous', user: null });
+        set({ status: 'anonymous', error: null, user: null });
       }
     },
 
     async completeAuth(params) {
+      const revision = ++sessionRevision;
       const info = await api.completeCallback(params);
+      if (revision !== sessionRevision) return;
       if (info.status !== 'authenticated') {
         get().reportExpired();
         return;
@@ -140,21 +174,41 @@ export function createSessionStore({
       const { redirectTo, pendingResume } = get();
       // In-memory `redirectTo` is wiped by the full-page auth round-trip, so
       // fall back to the persisted sessionStorage copy, then clear it.
-      const target = redirectTo ?? readRedirect(persist) ?? '/';
+      const target = normalizeReturnPath(redirectTo ?? readRedirect(persist));
       clearRedirect(persist);
-      set({ status: 'authenticated', user: info.user, redirectTo: null, pendingResume: null });
+      set({
+        status: 'authenticated',
+        error: null,
+        user: info.user,
+        redirectTo: null,
+        pendingResume: null,
+      });
       navigator.navigate(target);
       pendingResume?.();
     },
 
     async signOut() {
+      const revision = ++sessionRevision;
       await api.signOut();
+      if (revision !== sessionRevision) return;
       clearRedirect(persist);
-      set({ status: 'anonymous', user: null, redirectTo: null, pendingResume: null });
+      set({
+        status: 'anonymous',
+        error: null,
+        user: null,
+        redirectTo: null,
+        pendingResume: null,
+      });
     },
 
     reportExpired() {
-      set({ status: 'expired', user: null });
+      sessionRevision += 1;
+      const current = normalizeReturnPath(navigator.currentPath);
+      const target = current.startsWith('/auth/')
+        ? normalizeReturnPath(get().redirectTo ?? readRedirect(persist))
+        : current;
+      writeRedirect(persist, target);
+      set({ status: 'expired', error: null, user: null, redirectTo: target });
       navigator.navigate(SIGN_IN_PATH);
     },
 
@@ -181,7 +235,11 @@ export function reconcileSessionOnMount(store: SessionStore): Promise<void> {
   return store
     .getState()
     .refresh()
-    .catch(() => {
-      store.setState({ status: 'anonymous', user: null });
+    .catch((err: unknown) => {
+      store.setState({
+        status: 'unavailable',
+        user: null,
+        error: err instanceof Error ? err.message : 'Could not reach the session service',
+      });
     });
 }

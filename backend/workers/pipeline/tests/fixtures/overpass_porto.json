@@ -1,0 +1,41 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API recorded 2026-07-01",
+  "elements": [
+    {
+      "type": "node",
+      "id": 101,
+      "lat": 41.14663,
+      "lon": -8.61479,
+      "tags": {
+        "name": "Museu Fixture",
+        "tourism": "museum",
+        "wikidata": "Q100",
+        "fee": "yes",
+        "wheelchair": "yes",
+        "opening_hours": "Mo-Su 10:00-18:00"
+      }
+    },
+    {
+      "type": "node",
+      "id": 202,
+      "lat": 41.1542,
+      "lon": -8.6201,
+      "tags": {
+        "tourism": "viewpoint",
+        "direction": "180",
+        "wheelchair": "limited"
+      }
+    },
+    {
+      "type": "way",
+      "id": 303,
+      "center": {"lat": 41.1481, "lon": -8.6223},
+      "tags": {
+        "name": "Fixture Garden",
+        "leisure": "garden",
+        "opening_hours": "24/7"
+      }
+    }
+  ]
+}

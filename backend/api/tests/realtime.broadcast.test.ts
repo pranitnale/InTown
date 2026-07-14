@@ -92,14 +92,18 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
   }
 
   /** All broadcast payloads for this trip's topic and event, oldest first. */
-  async function broadcasts(event: string): Promise<unknown[]> {
-    const { rows } = await admin.query<{ payload: unknown }>(
-      `SELECT payload FROM realtime.messages
+  async function broadcastRows(event: string): Promise<Array<{ payload: unknown; private: boolean }>> {
+    const { rows } = await admin.query<{ payload: unknown; private: boolean }>(
+      `SELECT payload, private FROM realtime.messages
         WHERE topic = $1 AND event = $2
         ORDER BY inserted_at, id`,
       [topic, event],
     );
-    return rows.map((r) => r.payload);
+    return rows;
+  }
+
+  async function broadcasts(event: string): Promise<unknown[]> {
+    return (await broadcastRows(event)).map((row) => row.payload);
   }
 
   async function addPlace(userId: string, poiId: string, position: string): Promise<string> {
@@ -138,7 +142,9 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
       position: 'a1',
       state: 'suggested',
       added_by: alice.id,
+      version: 1,
     });
+    expect((await broadcastRows('place_added'))[0]!.private).toBe(true);
   });
 
   it('a position-only UPDATE broadcasts position set, state null (per-column LWW)', async () => {
@@ -154,6 +160,7 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
       position: 'a2',
       state: null, // untouched column → null on the wire
       updated_by: bob.id,
+      version: 2,
     });
   });
 
@@ -170,6 +177,7 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
       position: null, // untouched column → null on the wire
       state: 'must_do',
       updated_by: alice.id,
+      version: 2,
     });
   });
 
@@ -180,12 +188,17 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
     const [payload] = await broadcasts('place_removed');
     const parsed = TripBroadcast.safeParse(payload);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
-    expect(payload).toMatchObject({ type: 'place_removed', trip_place_id: placeId, removed_by: bob.id });
+    expect(payload).toMatchObject({
+      type: 'place_removed',
+      trip_place_id: placeId,
+      removed_by: bob.id,
+      version: 2,
+    });
   });
 
-  it('a vote INSERT then upsert-flip both broadcast zod-valid vote_cast payloads', async () => {
+  it('vote changes broadcast only aggregate tallies (never user_id or a per-user vote)', async () => {
     const placeId = await addPlace(alice.id, poiIds[0]!, 'a1');
-    // INSERT (first vote) fires vote_cast; the votePlace upsert flips it via
+    // INSERT emits a tally; the votePlace upsert flips it via
     // ON CONFLICT DO UPDATE, which is an UPDATE — the 0014 trigger fires on both.
     await attributedWrite(
       alice.id,
@@ -199,16 +212,35 @@ suite('realtime broadcast triggers (AC6, DB side)', () => {
       [placeId, alice.id],
     );
 
-    const payloads = await broadcasts('vote_cast');
+    const payloads = await broadcasts('vote_tally_updated');
     expect(payloads.length).toBe(2);
     for (const p of payloads) {
       const parsed = TripBroadcast.safeParse(p);
       expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
-      expect(p).toMatchObject({ type: 'vote_cast', trip_place_id: placeId, user_id: alice.id });
+      expect(p).toMatchObject({
+        type: 'vote_tally_updated',
+        trip_place_id: placeId,
+        member_count: 2,
+      });
+      expect(p).not.toHaveProperty('user_id');
+      expect(p).not.toHaveProperty('vote');
     }
-    // The insert carried 'up'; the upsert flip carried 'down'.
-    expect((payloads[0] as { vote: string }).vote).toBe('up');
-    expect((payloads[1] as { vote: string }).vote).toBe('down');
+    expect(payloads[0]).toMatchObject({ up: 1, down: 0 });
+    expect(payloads[1]).toMatchObject({ up: 0, down: 1 });
+  });
+
+  it('same-row updates carry a strictly increasing version independent of timestamps', async () => {
+    const placeId = await addPlace(alice.id, poiIds[0]!, 'a1');
+    await attributedWrite(alice.id, `UPDATE trip_places SET position = 'a2' WHERE id = $1`, [placeId]);
+    await attributedWrite(bob.id, `UPDATE trip_places SET state = 'kept' WHERE id = $1`, [placeId]);
+
+    const updates = (await broadcasts('place_updated')) as Array<{ version: number }>;
+    expect(updates.map((payload) => payload.version)).toEqual([2, 3]);
+    const { rows } = await admin.query<{ version: string }>(
+      'SELECT version::text FROM trip_places WHERE id = $1',
+      [placeId],
+    );
+    expect(Number(rows[0]!.version)).toBe(3);
   });
 
   it('a plan_revisions INSERT broadcasts a zod-valid plan_updated', async () => {

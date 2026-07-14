@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Run the generated-contracts Python test suite (fixture-contract parity check).
+# Run the repo's Python test suites:
+#   1. the generated-contracts fixture-contract parity check (contracts/python), and
+#   2. the P09 structured-ingestion pipeline suite (recorded HTTP fixtures only).
 #
 # Creates or reuses the repo-root `.venv`, installs
 # `contracts/python/requirements.txt` only when the toolchain is missing (so
-# repeated local runs are fast), then runs pytest against `contracts/python/tests`.
-# Targets Python 3.11 (the provisioned interpreter) but works on any 3.11+.
+# repeated local runs are fast), then runs both suites. Targets Python 3.11 for
+# the contracts suite; the pipeline package requires 3.11+ and lazy-imports its
+# httpx/psycopg dependencies, so the fixture suite needs no extra install.
 #
 # Canonical invocation is via the root workspace test script:
 #   pnpm -w test   ->   bash scripts/python-tests.sh
@@ -31,5 +34,11 @@ if ! "${VENV_PY}" -c "import pytest, pydantic, email_validator" >/dev/null 2>&1;
   "${VENV_PY}" -m pip install --quiet -r "${REQUIREMENTS}"
 fi
 
-# 3. Run the suite.
-exec "${VENV_PY}" -m pytest "${REPO_ROOT}/contracts/python/tests" -q
+# 3. Run the generated-contracts fixture-contract parity suite.
+"${VENV_PY}" -m pytest "${REPO_ROOT}/contracts/python/tests" -q
+
+# 4. Run the P09 structured-ingestion pipeline suite. `-t` sets the top-level
+#    dir so the `pipeline` package is importable; recorded JSON fixtures mean no
+#    live network calls and no third-party install (httpx/psycopg are lazy).
+PIPELINE_DIR="${REPO_ROOT}/backend/workers/pipeline"
+exec "${VENV_PY}" -m unittest discover -s "${PIPELINE_DIR}/tests" -t "${PIPELINE_DIR}"

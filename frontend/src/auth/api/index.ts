@@ -26,5 +26,9 @@ export function createAuthApi(options: CreateAuthApiOptions = {}): AuthApi {
       expired: options.expired,
     });
   }
-  return createAuthClient({ baseUrl: options.baseUrl, fetchImpl: options.fetchImpl });
+  return createAuthClient({
+    baseUrl: options.baseUrl,
+    fetchImpl: options.fetchImpl,
+    callbackUrl: options.callbackUrl,
+  });
 }

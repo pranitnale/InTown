@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Uuid, IsoDateTime, TripRole, PlaceState, PlanRevisionReason, VoteValue } from '../types/index.ts';
+import { Uuid, IsoDateTime, TripRole, PlaceState, PlanRevisionReason } from '../types/index.ts';
 
 /**
  * §11 / §6.4 — realtime collaboration channel `trip:{id}` (self-hosted Supabase
@@ -31,6 +31,8 @@ export type TripPresence = z.infer<typeof TripPresence>;
 
 /** Server timestamp carried on every broadcast for LWW reconciliation. */
 const at = IsoDateTime;
+/** Per-trip-place monotonic sequence; authoritative before the wall-clock `at`. */
+const version = z.number().int().positive();
 
 export const BroadcastPlaceAdded = z.object({
   type: z.literal('place_added'),
@@ -40,6 +42,7 @@ export const BroadcastPlaceAdded = z.object({
   position: z.string(),
   state: PlaceState,
   added_by: Uuid,
+  version,
   at,
 });
 
@@ -49,6 +52,7 @@ export const BroadcastPlaceUpdated = z.object({
   position: z.string().nullable(),
   state: PlaceState.nullable(),
   updated_by: Uuid,
+  version,
   at,
 });
 
@@ -56,14 +60,17 @@ export const BroadcastPlaceRemoved = z.object({
   type: z.literal('place_removed'),
   trip_place_id: Uuid,
   removed_by: Uuid,
+  version,
   at,
 });
 
-export const BroadcastVoteCast = z.object({
-  type: z.literal('vote_cast'),
+/** Aggregate-only preference update; never names a voter or their vote. */
+export const BroadcastVoteTallyUpdated = z.object({
+  type: z.literal('vote_tally_updated'),
   trip_place_id: Uuid,
-  user_id: Uuid,
-  vote: VoteValue,
+  up: z.number().int().nonnegative(),
+  down: z.number().int().nonnegative(),
+  member_count: z.number().int().nonnegative(),
   at,
 });
 
@@ -87,7 +94,7 @@ export const TripBroadcast = z.discriminatedUnion('type', [
   BroadcastPlaceAdded,
   BroadcastPlaceUpdated,
   BroadcastPlaceRemoved,
-  BroadcastVoteCast,
+  BroadcastVoteTallyUpdated,
   BroadcastPlanUpdated,
   BroadcastMemberJoined,
 ]);
@@ -97,6 +104,8 @@ export type TripBroadcast = z.infer<typeof TripBroadcast>;
 export const tripRealtimeChannel = {
   namePattern: 'trip:{id}',
   prefix: TRIP_CHANNEL_PREFIX,
+  /** Membership-authorized Supabase Realtime channel; never public. */
+  private: true,
   presence: TripPresence,
   broadcast: TripBroadcast,
 } as const;

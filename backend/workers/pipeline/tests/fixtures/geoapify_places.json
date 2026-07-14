@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-8.6201, 41.1542]},
+      "properties": {
+        "name": "Fallback Viewpoint",
+        "place_id": "fallback-202",
+        "categories": ["tourism.attraction.viewpoint"],
+        "datasource": {
+          "sourcename": "openstreetmap",
+          "attribution": "© OpenStreetMap contributors",
+          "license": "Open Database License",
+          "raw": {"osm_id": 202, "osm_type": "n"}
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-8.61, 41.15]},
+      "properties": {
+        "name": "Unsupported GeoNames Place",
+        "place_id": "geonames-1",
+        "categories": ["tourism.sights"],
+        "datasource": {
+          "sourcename": "geonames",
+          "raw": {"geonames_id": 1}
+        }
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { TravelerProfileEditor } from '../components/TravelerProfileEditor.tsx';
 import { TasteProfileEditor } from '../components/TasteProfileEditor.tsx';
 import { OnboardingRoute } from '../screens/OnboardingFlow.tsx';
 import type { TasteRanking, DefiningSight } from '../logic/override.ts';
+import { SessionProvider, createMemoryNavigator, createMockAuthApi } from '../../auth/index.ts';
 
 const render = (node: ReactElement): string => renderToStaticMarkup(node);
 
@@ -113,7 +114,15 @@ describe('onboarding components render (AC #2–#7)', () => {
 
 describe('onboarding route (AC #1)', () => {
   it('OnboardingRoute mounts the flow intro', () => {
-    const html = render(<OnboardingRoute />);
+    const html = render(
+      <SessionProvider
+        api={createMockAuthApi()}
+        navigator={createMemoryNavigator('/onboarding')}
+        autoRefresh={false}
+      >
+        <OnboardingRoute />
+      </SessionProvider>,
+    );
     expect(html).toContain('tune InTown to you');
   });
 });

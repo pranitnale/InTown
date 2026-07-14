@@ -1,5 +1,10 @@
 import { poisRoutes } from '@intown/contracts/api';
-import type { ListPoisQuery, SearchPoisQuery, PoiCardQuery } from '@intown/contracts/api';
+import type {
+  ListPoisQuery,
+  SearchPoisQuery,
+  PoiCardQuery,
+  PoiCardFact,
+} from '@intown/contracts/api';
 import type {
   Poi,
   Fact,
@@ -18,6 +23,7 @@ import type {
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pools } from '../db/pool.ts';
 import { registerRoute, type RouteHandler } from '../http/router.ts';
+import { selectFactsByAttribute, type SelectionRule } from './conflict.ts';
 
 /**
  * POI reads (P08, §11): viewport/category list, city-biased search-to-add, and
@@ -160,6 +166,44 @@ function toFact(row: FactRow): Fact {
     corroboration_count: row.corroboration_count,
     status: row.status,
   };
+}
+
+const EXPERIENCE_SOURCE_KINDS: ReadonlySet<FactSourceKind> = new Set([
+  'llm_research',
+  'web_review',
+  'user_correction',
+]);
+
+function factValueKey(value: unknown): string {
+  return JSON.stringify(value) ?? 'null';
+}
+
+/** Resolve raw append-only history into one honest, displayable fact per attribute. */
+export function selectCardFacts(facts: readonly Fact[], now: Date = new Date()): PoiCardFact[] {
+  const groups = new Map<string, Fact[]>();
+  for (const fact of facts) {
+    const group = groups.get(fact.attribute);
+    if (group) group.push(fact);
+    else groups.set(fact.attribute, [fact]);
+  }
+
+  const selected = selectFactsByAttribute(facts, now);
+  return [...selected.entries()].map(([attribute, result]) => {
+    const group = groups.get(attribute) ?? [];
+    const activeValues = new Set(
+      group.filter((fact) => fact.status === 'active').map((fact) => factValueKey(fact.value)),
+    );
+    const winner = result.fact;
+    return {
+      ...winner,
+      selected_by: result.rule as SelectionRule,
+      disputed: group.some((fact) => fact.status === 'disputed') || activeValues.size > 1,
+      single_report:
+        EXPERIENCE_SOURCE_KINDS.has(winner.source_kind) && winner.corroboration_count < 2,
+      citation: winner.source_url ?? 'N/A',
+      as_of: winner.observed_at,
+    };
+  });
 }
 
 interface PoiHoursRow {
@@ -345,7 +389,8 @@ export function poiCardHandler(pools: Pools): RouteHandler {
       pools.appPool.query<PoiRow>(`SELECT ${POI_COLUMNS} FROM pois WHERE id = $1`, [canon]),
       pools.appPool.query<FactRow>(
         `SELECT ${FACT_COLUMNS} FROM facts
-          WHERE entity_kind = 'poi' AND entity_id IN (${GROUP}) AND status <> 'rejected'
+          WHERE entity_kind = 'poi' AND entity_id IN (${GROUP})
+            AND status IN ('active', 'disputed')
           ORDER BY attribute, observed_at DESC, id`,
         [canon],
       ),
@@ -383,7 +428,7 @@ export function poiCardHandler(pools: Pools): RouteHandler {
 
     return {
       poi: toPoi(poiRes.rows[0]!),
-      facts: factsRes.rows.map(toFact),
+      facts: selectCardFacts(factsRes.rows.map(toFact)),
       hours: hoursRes.rows.map(toHours),
       enrichment: enrichRes.rows[0] ? toEnrichment(enrichRes.rows[0]) : null,
       reviews: reviewsRes.rows.map(toReview),

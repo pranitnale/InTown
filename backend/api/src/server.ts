@@ -1,4 +1,6 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import fastifyCors from '@fastify/cors';
+import fastifyHelmet from '@fastify/helmet';
 import { loadEnv, type LoadedEnv } from './config/env.ts';
 import { createPools, closePools, type Pools } from './db/pool.ts';
 import { pgAdapter } from './auth/adapter.ts';
@@ -41,7 +43,36 @@ export function buildServer(opts: BuildServerOptions = {}): FastifyInstance {
   // `trustProxy` makes `req.ip` the real client (not the reverse proxy) so the
   // per-IP auth rate limiter keys per client. Defaults to 1 hop in production
   // and off in dev/test; configurable via TRUST_PROXY (see config/env.ts).
-  const app = Fastify({ logger: opts.logger ?? false, trustProxy: env.TRUST_PROXY });
+  const app = Fastify({
+    logger: opts.logger ?? false,
+    trustProxy: env.TRUST_PROXY,
+    bodyLimit: env.API_BODY_LIMIT_BYTES,
+  });
+  app.decorate('apiRateLimitMax', env.API_RATE_LIMIT_MAX);
+
+  const allowedOrigins = new Set(env.CORS_ALLOWED_ORIGINS);
+  app.register(fastifyCors, {
+    credentials: true,
+    strictPreflight: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Accept', 'Content-Type', 'X-CSRF-Token', 'X-Auth-Return-Redirect'],
+    maxAge: 600,
+    origin(origin, callback) {
+      // Requests without Origin are non-browser/same-origin traffic. Browser
+      // origins must be an exact scheme+host+port allowlist match.
+      callback(null, origin === undefined || allowedOrigins.has(origin));
+    },
+  });
+  app.register(fastifyHelmet, {
+    global: true,
+    // The API is intentionally consumed cross-origin by the Vercel frontend;
+    // CORP `same-origin` would contradict the CORS policy above.
+    crossOriginResourcePolicy: false,
+    hsts:
+      env.NODE_ENV === 'production'
+        ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+        : false,
+  });
 
   app.get('/healthz', async () => ({ status: 'ok' as const }));
 

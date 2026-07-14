@@ -292,6 +292,8 @@ export interface SeedGeoObservationOptions {
   observed_at?: string;
   expires_at?: string | null;
   confidence?: number;
+  source_provider?: string;
+  source_record_id?: string;
 }
 
 /**
@@ -305,8 +307,10 @@ export async function seedGeoObservation(
 ): Promise<string> {
   const { rows } = await admin.query<{ id: string }>(
     `INSERT INTO poi_geo_observations
-       (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
-     VALUES ($1, $2::geo_source_kind, $3, $4, $5, coalesce($6::timestamptz, now()), $7, $8)
+       (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence,
+        source_provider, source_record_id)
+     VALUES ($1, $2::geo_source_kind, $3, $4, $5, coalesce($6::timestamptz, now()), $7, $8,
+             coalesce($9, lower($2::text)), coalesce($10, 'test:' || gen_random_uuid()::text))
      RETURNING id`,
     [
       opts.poi_id,
@@ -317,6 +321,8 @@ export async function seedGeoObservation(
       opts.observed_at ?? null,
       opts.expires_at ?? null,
       opts.confidence ?? 0.9,
+      opts.source_provider ?? null,
+      opts.source_record_id ?? null,
     ],
   );
   return rows[0]!.id;

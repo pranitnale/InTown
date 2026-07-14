@@ -6,6 +6,8 @@ import { ProfileContext, type ProfileContextValue } from './context.ts';
 
 export interface ProfileProviderProps {
   api: ProfileApi;
+  /** Reconcile an API 401 with the global session boundary. */
+  onSessionExpired?: () => void;
   /** Load profile data on mount (default true). Off for pure render tests. */
   autoLoad?: boolean;
   children: ReactNode;
@@ -16,10 +18,15 @@ export interface ProfileProviderProps {
  * context. On mount it loads the profile (unless disabled). Mirrors
  * `SessionProvider`.
  */
-export function ProfileProvider({ api, autoLoad = true, children }: ProfileProviderProps) {
+export function ProfileProvider({
+  api,
+  onSessionExpired,
+  autoLoad = true,
+  children,
+}: ProfileProviderProps) {
   const valueRef = useRef<ProfileContextValue | null>(null);
   if (valueRef.current === null) {
-    valueRef.current = { store: createProfileStore(api), api };
+    valueRef.current = { store: createProfileStore(api, onSessionExpired), api };
   }
   const value = valueRef.current;
 

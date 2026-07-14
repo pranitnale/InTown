@@ -25,6 +25,14 @@ export function toWebRequest(req: FastifyRequest, env: LoadedEnv): Request {
       headers.set(key, value);
     }
   }
+  if (env.AUTH_URL) {
+    // Auth.js is configured with trustHost because the bridge supplies a trusted
+    // Request URL. Do not also pass attacker-controlled forwarding/Host values:
+    // pin Host to the validated deployment origin and drop proxy origin hints.
+    headers.set('host', new URL(env.AUTH_URL).host);
+    headers.delete('x-forwarded-host');
+    headers.delete('x-forwarded-proto');
+  }
 
   const method = req.method;
   const hasBody = method !== 'GET' && method !== 'HEAD';

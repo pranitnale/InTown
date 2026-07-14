@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { Skeleton, Tabs, type TabItem } from '../../design-system/index.ts';
+import { Button, Skeleton, Tabs, type TabItem } from '../../design-system/index.ts';
+import { PersonalizationSettings, SignOutControl, useSession } from '../../auth/index.ts';
+import { getRuntimeConfig } from '../../config/runtime.ts';
 import {
   ProfileProvider,
   TravelerProfileEditor,
@@ -23,7 +25,17 @@ export function SettingsBody() {
   }
 
   if (status === 'error') {
-    return <p className="text-sm text-error">Couldn&rsquo;t load your profile. Please try again.</p>;
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-error" role="alert">
+          Couldn&rsquo;t load your profile. Check your connection and try again.
+        </p>
+        <Button variant="secondary" onClick={() => void store.getState().load()}>
+          Try again
+        </Button>
+        <SignOutControl />
+      </div>
+    );
   }
 
   const tabs: TabItem[] = [
@@ -60,8 +72,10 @@ export function SettingsBody() {
       id: 'data',
       label: 'Your data',
       content: (
-        <div className="pt-4">
+        <div className="flex flex-col gap-4 pt-4">
+          <PersonalizationSettings />
           <GdprControls />
+          <SignOutControl />
         </div>
       ),
     },
@@ -92,9 +106,13 @@ export function SettingsScreenInner() {
  * (P03 session mount), NOT gated on P04.
  */
 export function SettingsRoute() {
-  const api = useMemo(() => createProfileApi({ mock: true }), []);
+  const { reportExpired } = useSession();
+  const api = useMemo(() => {
+    const config = getRuntimeConfig();
+    return createProfileApi({ mock: config.mockApi, baseUrl: config.apiBaseUrl });
+  }, []);
   return (
-    <ProfileProvider api={api}>
+    <ProfileProvider api={api} onSessionExpired={reportExpired}>
       <SettingsScreenInner />
     </ProfileProvider>
   );

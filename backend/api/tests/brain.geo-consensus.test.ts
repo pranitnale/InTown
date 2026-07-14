@@ -45,6 +45,8 @@ interface GeoFixtureRow {
   observed_at: string;
   expires_at: string | null;
   confidence: number;
+  source_provider: string;
+  source_record_id: string;
 }
 const poisFixture = poisFixtureRaw as unknown as PoiFixtureRow[];
 const geoFixture = geoFixtureRaw as unknown as GeoFixtureRow[];
@@ -139,6 +141,48 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     expect(poi.coord_verified_by).toBe('open_data');
   });
 
+  it('rejects the 180m midpoint false-positive: every contributing pair must be <=100m', async () => {
+    const poiId = await seedPoi(admin, { cityId });
+    await insertObs(admin, {
+      poiId,
+      sourceKind: 'osm',
+      sourceProvider: 'openstreetmap',
+      sourceRecordId: 'node/one',
+      lat: PORTO_LAT,
+      lng: PORTO_LNG,
+    });
+    await insertObs(admin, {
+      poiId,
+      sourceKind: 'wikidata',
+      sourceProvider: 'wikidata',
+      sourceRecordId: 'Q-test',
+      lat: PORTO_LAT + offsetLat(180),
+      lng: PORTO_LNG,
+    });
+
+    // Both points are ~90m from the midpoint, which the old centroid-only test
+    // incorrectly verified. Their direct pair distance is ~180m, so fail closed.
+    expect((await readPoi(admin, poiId)).coord_resolution).toBe('approximate');
+  });
+
+  it('does not treat a duplicate provider record as an independent source', async () => {
+    const poiId = await seedPoi(admin, { cityId });
+    for (const [sourceKind, meters] of [
+      ['osm', 0],
+      ['wikidata', 20],
+    ] as const) {
+      await insertObs(admin, {
+        poiId,
+        sourceKind,
+        sourceProvider: 'shared-upstream',
+        sourceRecordId: 'same-record-42',
+        lat: PORTO_LAT + offsetLat(meters),
+        lng: PORTO_LNG,
+      });
+    }
+    expect((await readPoi(admin, poiId)).coord_resolution).toBe('approximate');
+  });
+
   it('AC4.4: two independent sources ~500 m apart → NOT verified (no agreement within 100 m)', async () => {
     const poiId = await seedPoi(admin, { cityId });
     await insertObs(admin, {
@@ -217,8 +261,10 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     // A far-away, still-valid google_fallback obs must NOT move the canonical coord.
     await admin.query(
       `INSERT INTO poi_geo_observations
-         (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
-       VALUES ($1, 'google_fallback', $2, $3, 30, now(), now() + interval '30 days', 0.95)`,
+         (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence,
+          source_provider, source_record_id)
+       VALUES ($1, 'google_fallback', $2, $3, 30, now(), now() + interval '30 days', 0.95,
+               'google-places', 'test:valid-google')`,
       [poiId, PORTO_LAT + offsetLat(500), PORTO_LNG],
     );
 
@@ -238,6 +284,18 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     expect(rows[0]!.source_kind).toBe('google_fallback');
   });
 
+  it('rejects a new observation without durable provider record identity', async () => {
+    const poiId = await seedPoi(admin, { cityId });
+    await expect(
+      admin.query(
+        `INSERT INTO poi_geo_observations
+           (poi_id, source_kind, lat, lng, observed_at, confidence)
+         VALUES ($1, 'osm', $2, $3, now(), 0.8)`,
+        [poiId, PORTO_LAT, PORTO_LNG],
+      ),
+    ).rejects.toThrow(/source_provider|source_record_id|source_identity/);
+  });
+
   it('AC5: a google_fallback observation WITHOUT expires_at is rejected at the schema level (D53 ToS law)', async () => {
     const poiId = await seedPoi(admin, { cityId });
     // ToS-limited rows MUST carry an expiry; omitting expires_at violates the
@@ -245,8 +303,10 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     await expect(
       admin.query(
         `INSERT INTO poi_geo_observations
-           (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
-         VALUES ($1, 'google_fallback', $2, $3, 30, now(), NULL, 0.5)`,
+           (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence,
+            source_provider, source_record_id)
+         VALUES ($1, 'google_fallback', $2, $3, 30, now(), NULL, 0.5,
+                 'google-places', 'test:missing-expiry')`,
         [poiId, PORTO_LAT, PORTO_LNG],
       ),
     ).rejects.toThrow(/poi_geo_obs_google_expires_chk|violates check/);
@@ -266,9 +326,10 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
     // A google_fallback obs, far away, ALREADY expired.
     await admin.query(
       `INSERT INTO poi_geo_observations
-         (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
+         (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence,
+          source_provider, source_record_id)
        VALUES ($1, 'google_fallback', $2, $3, 30, now() - interval '40 days',
-               now() - interval '10 days', 0.95)`,
+               now() - interval '10 days', 0.95, 'google-places', 'test:expired-google')`,
       [poiId, PORTO_LAT + offsetLat(500), PORTO_LNG],
     );
 
@@ -326,6 +387,8 @@ describe('Brain geo-consensus — recompute + display gate (AC4/AC5)', () => {
         observedAt: o.observed_at,
         expiresAt: o.expires_at,
         confidence: o.confidence,
+        sourceProvider: o.source_provider,
+        sourceRecordId: o.source_record_id,
       });
     }
 

@@ -33,3 +33,5 @@ class PoiGeoObservation(BaseModel):
     observed_at: AwareDatetime
     poi_id: UUID
     source_kind: SourceKind
+    source_provider: str
+    source_record_id: str

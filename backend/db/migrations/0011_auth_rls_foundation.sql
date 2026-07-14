@@ -13,16 +13,18 @@
 -- is used only for migrations, never to serve requests.
 
 -- ---------------------------------------------------------------------------
--- Roles. Idempotent create; DEV passwords only — production injects real
--- credentials out-of-band via `ALTER ROLE ... PASSWORD` (never committed).
+-- Roles. Idempotent and deliberately created with NO effective password. The
+-- migration runner provisions validated AUTH_DATABASE_URL / APP_DATABASE_URL
+-- credentials only after the full chain succeeds; no committed credential is
+-- ever effective, even briefly, on a fresh production database.
 -- ---------------------------------------------------------------------------
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'intown_auth') THEN
-    CREATE ROLE intown_auth LOGIN NOSUPERUSER BYPASSRLS PASSWORD 'intown_auth_dev_password';
+    CREATE ROLE intown_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS PASSWORD NULL;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'intown_app') THEN
-    CREATE ROLE intown_app LOGIN NOSUPERUSER PASSWORD 'intown_app_dev_password';
+    CREATE ROLE intown_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL;
   END IF;
 END $$;
 

@@ -25,6 +25,10 @@ export function buildAuthConfig(params: {
   providers: Provider[];
 }): AuthConfig {
   const { env, adapter, providers } = params;
+  const redirectOrigins = new Set([
+    ...(env.AUTH_URL ? [new URL(env.AUTH_URL).origin] : []),
+    ...env.CORS_ALLOWED_ORIGINS,
+  ]);
   return {
     adapter,
     providers,
@@ -33,6 +37,27 @@ export function buildAuthConfig(params: {
     basePath: AUTH_BASE_PATH,
     session: { strategy: 'database' },
     useSecureCookies: env.COOKIE_SECURE,
+    callbacks: {
+      /**
+       * Auth.js accepts a caller-provided callbackUrl. Constrain it to the API
+       * origin or an explicitly allowed browser origin so sign-in cannot become
+       * an open redirect (and so a forged Host header is never trusted in prod).
+       */
+      redirect({ url, baseUrl }) {
+        try {
+          const target = new URL(url, baseUrl);
+          if (
+            (target.protocol === 'http:' || target.protocol === 'https:') &&
+            redirectOrigins.has(target.origin)
+          ) {
+            return target.href;
+          }
+        } catch {
+          // Fall through to the known Auth.js base origin.
+        }
+        return baseUrl;
+      },
+    },
     cookies: {
       sessionToken: {
         name: sessionCookieName(env),

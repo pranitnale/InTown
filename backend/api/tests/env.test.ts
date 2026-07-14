@@ -16,6 +16,8 @@ const REAL_PROD = {
   DATABASE_URL: 'postgresql://postgres:real_super_pw@db:5432/intown',
   AUTH_DATABASE_URL: 'postgresql://intown_auth:real_auth_pw@db:5432/intown',
   APP_DATABASE_URL: 'postgresql://intown_app:real_app_pw@db:5432/intown',
+  CORS_ALLOWED_ORIGINS: 'https://intown.example.com,https://preview.intown.example.com',
+  AUTH_COOKIE_SITE: 'intown.example.com',
 } as unknown as NodeJS.ProcessEnv;
 
 describe('loadEnv production hardening', () => {
@@ -44,12 +46,48 @@ describe('loadEnv production hardening', () => {
     expect(() => loadEnv(rest as unknown as NodeJS.ProcessEnv)).toThrow(/AUTH_URL/);
   });
 
+  it('rejects wildcard, empty, and insecure production browser origins', () => {
+    for (const CORS_ALLOWED_ORIGINS of [
+      '*',
+      'https://intown.example.com,',
+      'http://intown.example.com',
+    ]) {
+      expect(() =>
+        loadEnv({
+          ...(REAL_PROD as Record<string, string>),
+          CORS_ALLOWED_ORIGINS,
+        } as NodeJS.ProcessEnv),
+      ).toThrow(/CORS_ALLOWED_ORIGINS/);
+    }
+  });
+
+  it('rejects an insecure or path-bearing production AUTH_URL', () => {
+    for (const AUTH_URL of ['http://api.intown.example.com', 'https://api.intown.example.com/auth']) {
+      expect(() =>
+        loadEnv({ ...(REAL_PROD as Record<string, string>), AUTH_URL } as NodeJS.ProcessEnv),
+      ).toThrow(/AUTH_URL/);
+    }
+  });
+
+  it('rejects cross-site frontend/API deployments that would drop Auth.js Lax cookies', () => {
+    expect(() =>
+      loadEnv({
+        ...(REAL_PROD as Record<string, string>),
+        CORS_ALLOWED_ORIGINS: 'https://project.vercel.app',
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/SameSite|AUTH_COOKIE_SITE/);
+  });
+
   it('succeeds in production with real secrets/URLs and defaults TRUST_PROXY to 1 hop', () => {
     const env = loadEnv(REAL_PROD);
     expect(env.AUTH_SECRET).toBe(REAL_PROD.AUTH_SECRET);
     expect(env.AUTH_URL).toBe(REAL_PROD.AUTH_URL);
     expect(env.COOKIE_SECURE).toBe(true);
     expect(env.TRUST_PROXY).toBe(1);
+    expect(env.CORS_ALLOWED_ORIGINS).toEqual([
+      'https://intown.example.com',
+      'https://preview.intown.example.com',
+    ]);
   });
 });
 

@@ -4,50 +4,58 @@ import { Button } from '../ui/Button.tsx';
 import { useSession } from '../session/useSession.ts';
 import { SessionExpiredError } from '../api/index.ts';
 import { PERSONALIZATION_CONSENT_COPY } from './copy.ts';
-import { consentDecisionKey, type ConsentStorage } from './storage.ts';
+import { createLocalStorage, consentDecisionKey, type ConsentStorage } from './storage.ts';
 import { PERSONALIZATION_CONSENT_TYPE, recordConsentDecision } from './recordDecision.ts';
 
 export interface ConsentCardProps {
-  /** Where the one-time decision is cached (so the card only shows on first login). */
-  storage: ConsentStorage;
-  /** Policy/copy version recorded with the decision (§16.1). */
+  /** Optional local cache used only by the isolated component/test harness. */
+  storage?: ConsentStorage;
+  /** Policy/copy version recorded with the decision. */
   policyVersion?: string;
-  /** Called after the decision is recorded (true = granted). */
+  /**
+   * Server-reconciled decision. Undefined selects standalone cache behavior;
+   * null means the server has no decision and the card must be shown.
+   */
+  decision?: boolean | null;
+  /** Controlled server write supplied by the global ConsentProvider. */
+  onSaveDecision?: (granted: boolean) => Promise<void>;
   onDecision?: (granted: boolean) => void;
 }
 
-/**
- * First-login consent card (§16.1). Shows the exact personalization copy and
- * Allow / Not now actions. On a choice it records the consent server-side and
- * caches the decision locally, so it never reappears. Declining is fully
- * supported — the app stays functional in non-personalized mode.
- */
-export function ConsentCard({ storage, policyVersion, onDecision }: ConsentCardProps) {
+/** First-login personalization choice with a functional decline path. */
+export function ConsentCard({
+  storage: suppliedStorage,
+  policyVersion,
+  decision,
+  onSaveDecision,
+  onDecision,
+}: ConsentCardProps) {
   const { api, store } = useSession();
   const titleId = useId();
+  const [storage] = useState(() => suppliedStorage ?? createLocalStorage());
   const key = consentDecisionKey(PERSONALIZATION_CONSENT_TYPE);
-  const [decided, setDecided] = useState<boolean>(() => storage.get(key) !== null);
+  const [locallyDecided, setLocallyDecided] = useState<boolean>(() => storage.get(key) !== null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const controlled = decision !== undefined;
 
-  if (decided) return null;
+  if (controlled ? decision !== null : locallyDecided) return null;
 
   async function choose(granted: boolean) {
     if (busy) return;
     setBusy(true);
     setFailed(false);
     try {
-      // Route the consent write through the session guard so a mid-use 401
-      // maps SessionExpiredError → reportExpired → navigate('/auth/sign-in')
-      // instead of surfacing as an unhandled rejection.
-      await store.getState().guard(() =>
-        recordConsentDecision({ api, storage, granted, policyVersion }),
-      );
-      setDecided(true);
+      if (onSaveDecision) {
+        await onSaveDecision(granted);
+      } else {
+        await store.getState().guard(() =>
+          recordConsentDecision({ api, storage, granted, policyVersion }),
+        );
+      }
+      setLocallyDecided(true);
       onDecision?.(granted);
     } catch (err) {
-      // guard already handled expiry (redirect performed); for any other,
-      // non-fatal error keep the app usable and let the card retry.
       if (!(err instanceof SessionExpiredError)) setFailed(true);
     } finally {
       setBusy(false);
@@ -55,7 +63,7 @@ export function ConsentCard({ storage, policyVersion, onDecision }: ConsentCardP
   }
 
   return (
-    <Card aria-labelledby={titleId}>
+    <Card aria-labelledby={titleId} className="mx-auto max-w-2xl">
       <h2 id={titleId} className="mb-2 text-lg font-semibold text-text">
         Personalize your experience
       </h2>

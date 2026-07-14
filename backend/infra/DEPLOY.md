@@ -65,6 +65,40 @@ The runner (`api/src/db/migrate.ts`) takes a Postgres advisory lock, tracks
 applied files in `schema_migrations`, and applies each pending `*.sql` in
 filename order inside its own transaction — idempotent and safe to re-run.
 
+Production migration/startup also requires `AUTH_DATABASE_URL` and
+`APP_DATABASE_URL`; their URL passwords are validated and provisioned onto the
+`intown_auth` (BYPASSRLS) and least-privilege `intown_app` roles only after the
+full chain succeeds. Never run the API with the migration/superuser URL.
+
+## Frontend/API origin and cookie invariant
+
+The static frontend and API may be on different hosts, but production auth
+requires **same-site custom domains** because Auth.js CSRF/PKCE/session cookies
+are `SameSite=Lax`. A typical layout is `app.intown.example` (Vercel) and
+`api.intown.example` (VPS), with:
+
+```text
+AUTH_URL=https://api.intown.example
+CORS_ALLOWED_ORIGINS=https://app.intown.example
+AUTH_COOKIE_SITE=intown.example
+```
+
+Startup rejects HTTP/wildcard origins and rejects any origin outside
+`AUTH_COOKIE_SITE`. Pointing an unrelated `project.vercel.app` origin at the VPS
+API is intentionally unsupported: cross-site credentialed sign-in POSTs would
+drop the Lax auth cookies. Use custom domains (including for authenticated
+preview environments) and terminate TLS before the API.
+
+## Private Realtime deployment gate (P15)
+
+Trip broadcasts are written with `private=true`; public `trip:{id}` subscriptions
+must never be enabled. Before P15 exposes realtime to browsers, it must mint
+short-lived member-scoped Realtime JWTs and install `realtime.messages` topic
+policies that authorize only current members of the addressed trip. Validate
+owner/editor/viewer access plus removed-member denial in the two-client demo.
+Until that token/policy work exists, the API remains the source of truth and
+clients must use HTTP refresh instead of attempting public-channel fallback.
+
 ## Notes / TODO for the ops phase
 
 - Pin exact image tags (MinIO `RELEASE.*`, Supabase Realtime `v2.x`) once the

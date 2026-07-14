@@ -25,7 +25,7 @@ describe('peak-motivation gate', () => {
 
     // Simply constructing the session must not redirect or change status.
     expect(navigator.currentPath).toBe('/trips/42');
-    expect(store.getState().status).toBe('anonymous');
+    expect(store.getState().status).toBe('loading');
     expect(store.getState().pendingResume).toBeNull();
   });
 
@@ -34,6 +34,7 @@ describe('peak-motivation gate', () => {
     const navigator = createMemoryNavigator('/trips/42');
     const store = createSessionStore({ api, navigator });
     const action = vi.fn();
+    store.setState({ status: 'anonymous' });
 
     performRequireAuth(store, navigator, action);
 

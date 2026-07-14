@@ -7,6 +7,7 @@ import { roleDescription } from '../logic/roles.ts';
 import type { TripsStatus } from '../store/tripsStore.ts';
 import { TripsProvider } from '../store/TripsProvider.tsx';
 import { useTrips } from '../store/useTrips.ts';
+import { getRuntimeConfig } from '../../config/runtime.ts';
 
 export interface TripsListViewProps {
   status: TripsStatus;
@@ -84,7 +85,10 @@ export function TripsList() {
  * {@link TripsList}.
  */
 export function TripsRoute() {
-  const api = useMemo(() => createTripsApi({ mock: true }), []);
+  const api = useMemo(() => {
+    const config = getRuntimeConfig();
+    return createTripsApi({ mock: config.mockApi });
+  }, []);
   return (
     <TripsProvider api={api}>
       <TripsList />

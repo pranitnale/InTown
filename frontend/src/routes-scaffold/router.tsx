@@ -1,11 +1,20 @@
-import { createBrowserRouter } from 'react-router';
+/* eslint-disable react-refresh/only-export-components -- static router module owns its provider boundary */
+import { Navigate, Outlet, createBrowserRouter } from 'react-router';
 import { AppLayout } from '../app-shell/AppLayout.tsx';
+import {
+  AuthCallback,
+  AuthError,
+  BrowserSessionProvider,
+  CheckEmail,
+  ConsentProvider,
+  SignIn,
+  SignUp,
+} from '../auth/index.ts';
 import { RequireAuth } from './RequireAuth.tsx';
 import { OnboardingRoute } from '../onboarding/index.ts';
 import { SettingsRoute } from '../settings/index.ts';
 import { TripsRoute, TripNewRoute, JoinRoute } from '../trips/index.ts';
 import {
-  AuthScreen,
   HomeScreen,
   ModerationScreen,
   OfflineScreen,
@@ -16,45 +25,54 @@ import {
   TripGeneratingScreen,
 } from './placeholders.tsx';
 
+function AppProviders() {
+  return (
+    <BrowserSessionProvider>
+      <ConsentProvider>
+        <Outlet />
+      </ConsentProvider>
+    </BrowserSessionProvider>
+  );
+}
+
 /**
- * P01 route skeleton (AC #5 / FINAL_PRD §4). All screens are placeholders; real
- * content lands in later phases. Mirrors the SPA rewrite in `vercel.json`
- * (all paths → index.html) so deep links resolve client-side.
- *
- * Gating: PUBLIC routes (`/auth/*`, `/offline`, `/reviews-policy`,
- * `/moderation`) sit directly under the layout; every other route is wrapped by
- * `<RequireAuth>`. P03 swaps the gate predicate — no route changes needed.
- *
- * P07 exception (§6.4/§6.3 gate placement): `/trips/new` (the setup wizard) and
- * `/join/:code` (the invite landing) are PUBLIC — the sign-in gate sits at
- * save/join (peak motivation), never before the quiz or the role preview. Those
- * screens gate their own protected actions internally. The `/trips` list stays
- * gated behind `<RequireAuth>`.
+ * Canonical route table. The landing page, auth, offline shell, new-trip quiz,
+ * and invite preview are public; account-specific pages use the real session.
  */
 export const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    element: <AppProviders />,
     children: [
-      // ---- PUBLIC (no auth gate) ----
-      { path: 'auth/*', element: <AuthScreen /> },
-      { path: 'offline', element: <OfflineScreen /> },
-      { path: 'reviews-policy', element: <ReviewsPolicyScreen /> },
-      { path: 'moderation', element: <ModerationScreen /> },
-      { path: 'trips/new', element: <TripNewRoute /> },
-      { path: 'join/:code', element: <JoinRoute /> },
-
-      // ---- GATED (behind RequireAuth) ----
       {
-        element: <RequireAuth />,
+        element: <AppLayout />,
         children: [
-          { index: true, element: <HomeScreen /> }, // '/'
-          { path: 'onboarding', element: <OnboardingRoute /> },
-          { path: 'trips', element: <TripsRoute /> },
-          { path: 'trips/:id', element: <TripDetailScreen /> },
-          { path: 'trips/:id/curate', element: <TripCurateScreen /> },
-          { path: 'trips/:id/city-brief', element: <TripCityBriefScreen /> },
-          { path: 'trips/:id/generating', element: <TripGeneratingScreen /> },
-          { path: 'settings', element: <SettingsRoute /> },
+          // Public routes.
+          { index: true, element: <HomeScreen /> },
+          { path: 'auth', element: <Navigate to="/auth/sign-in" replace /> },
+          { path: 'auth/sign-in', element: <SignIn /> },
+          { path: 'auth/sign-up', element: <SignUp /> },
+          { path: 'auth/check-email', element: <CheckEmail /> },
+          { path: 'auth/callback', element: <AuthCallback /> },
+          { path: 'auth/error', element: <AuthError /> },
+          { path: 'offline', element: <OfflineScreen /> },
+          { path: 'reviews-policy', element: <ReviewsPolicyScreen /> },
+          { path: 'moderation', element: <ModerationScreen /> },
+          { path: 'trips/new', element: <TripNewRoute /> },
+          { path: 'join/:code', element: <JoinRoute /> },
+
+          // Account-specific routes.
+          {
+            element: <RequireAuth />,
+            children: [
+              { path: 'onboarding', element: <OnboardingRoute /> },
+              { path: 'trips', element: <TripsRoute /> },
+              { path: 'trips/:id', element: <TripDetailScreen /> },
+              { path: 'trips/:id/curate', element: <TripCurateScreen /> },
+              { path: 'trips/:id/city-brief', element: <TripCityBriefScreen /> },
+              { path: 'trips/:id/generating', element: <TripGeneratingScreen /> },
+              { path: 'settings', element: <SettingsRoute /> },
+            ],
+          },
         ],
       },
     ],

@@ -6,6 +6,7 @@
 // Routing / flow
 export { authRouteTable, AuthFlow } from './routes.tsx';
 export type { AuthRoute } from './routes.tsx';
+export { SignIn, SignUp, CheckEmail, AuthCallback, AuthError } from './screens/index.ts';
 
 // Navigation seam
 export type { AuthNavigator } from './navigation.ts';
@@ -14,10 +15,15 @@ export { createMemoryNavigator } from './navigation.ts';
 // Session
 export { SessionProvider } from './session/SessionProvider.tsx';
 export type { SessionProviderProps } from './session/SessionProvider.tsx';
+export {
+  BrowserSessionProvider,
+  createRouterAuthNavigator,
+} from './session/BrowserSessionProvider.tsx';
+export type { BrowserSessionProviderProps } from './session/BrowserSessionProvider.tsx';
 export { useSession } from './session/useSession.ts';
 export type { UseSessionResult } from './session/useSession.ts';
 export type { SessionState, SessionStatus, SessionStore } from './session/store.ts';
-export { createSessionStore } from './session/store.ts';
+export { createSessionStore, normalizeReturnPath } from './session/store.ts';
 
 // Gate
 export { AuthGate } from './gate/AuthGate.tsx';
@@ -28,6 +34,22 @@ export type { UseAuthGateResult } from './gate/useAuthGate.ts';
 // Consent
 export { ConsentCard } from './consent/ConsentCard.tsx';
 export type { ConsentCardProps } from './consent/ConsentCard.tsx';
+export {
+  ConsentProvider,
+  FirstLoginConsentPrompt,
+  latestPersonalizationDecision,
+  reconcilePersonalizationConsent,
+  useConsent,
+} from './consent/ConsentProvider.tsx';
+export type {
+  ConsentContextValue,
+  ConsentProviderProps,
+  ConsentReconciliationStatus,
+} from './consent/ConsentProvider.tsx';
+export {
+  PersonalizationSettings,
+  SignOutControl,
+} from './consent/PersonalizationSettings.tsx';
 export { NonPersonalizedNote } from './consent/NonPersonalizedNote.tsx';
 export { PERSONALIZATION_CONSENT_COPY, CONSENT_POLICY_VERSION } from './consent/copy.ts';
 export {

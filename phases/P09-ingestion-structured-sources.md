@@ -43,10 +43,10 @@ cd backend && npm run test && npm run lint && npm run typecheck
 ```
 
 ## Resume checklist
-- [ ] Overpass QL sweep (kumi primary + overpass-api.de fallback), incl. unnamed nodes.
-- [ ] Wikidata/Wikipedia significance + prominence + images.
-- [ ] Wikimedia Commons photo galleries (attributed).
-- [ ] Geoapify geocoding (debounced, storable, geo-observation).
-- [ ] Cold-city skeleton orchestration (~1–2 min target).
-- [ ] Category mapping to §5.4 enum; recorded-fixture CI.
-- [ ] Tests; Verification commands green.
+- [x] Overpass QL sweep (kumi primary + overpass-api.de fallback), incl. unnamed nodes. — `pipeline/ingestion/osm.py` (`build_overpass_query`, `parse_overpass_payload`, `OverpassClient`); tests `OverpassTests.*` incl. unnamed-viewpoint + kumi→de fallback.
+- [x] Wikidata/Wikipedia significance + prominence + images. — `pipeline/ingestion/wikimedia.py` (`WikidataClient`/`WikipediaClient`); tests `WikimediaTests.*` (significance, height fact, prominence, `P18` image, maxlag/User-Agent).
+- [x] Wikimedia Commons photo galleries (attributed). — `pipeline/ingestion/commons.py` (`CommonsClient`); `test_wikipedia_and_commons_land_attributed_atomic_facts` asserts license/creator/attribution + non-free rejection.
+- [x] Geoapify geocoding (debounced, storable, geo-observation). — `pipeline/ingestion/geoapify.py` (`GeoapifyClient`, `DebouncedGeoapifyAutocomplete`, `GeoapifyPlacesClient`); tests cover true-upstream provenance, unsupported-provenance rejection, debounce (latest-call-wins), and the labeled Places degrade path.
+- [x] Cold-city skeleton orchestration (~1–2 min target). — `pipeline/ingestion/orchestrator.py` (`StructuredIngestionPipeline`, deadline-aware); `test_golden_city_is_curatable_complete_and_idempotent` (<5s budget), `test_deadline_preserves_partial_skeleton`, `test_cancellation_aborts_build_and_propagates`.
+- [x] Category mapping to §5.4 enum; recorded-fixture CI. — `pipeline/ingestion/categories.py` maps OSM/Wikidata/Geoapify → the single `Category` enum (`CategoryMappingTests`); the fixture suite now runs in the canonical `pnpm -w test` gate via `scripts/python-tests.sh` (step 4).
+- [x] Tests; Verification commands green. — 23 recorded-fixture tests pass (`python -m unittest discover -s backend/workers/pipeline/tests -t backend/workers/pipeline`); `python -m compileall` and `intown-pipeline --help` clean. Live-Postgres and deploy checks are the out-of-CI list in `VERIFY.md`.

@@ -106,6 +106,8 @@ export interface ObsArgs {
   observedAt?: string;
   expiresAt?: string | null;
   confidence?: number;
+  sourceProvider?: string;
+  sourceRecordId?: string;
 }
 
 /**
@@ -116,8 +118,10 @@ export interface ObsArgs {
 export async function insertObs(admin: pg.Pool, args: ObsArgs): Promise<void> {
   await admin.query(
     `INSERT INTO poi_geo_observations
-       (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence)
-     VALUES ($1, $2, $3, $4, $5, coalesce($6::timestamptz, now()), $7::timestamptz, $8)`,
+       (poi_id, source_kind, lat, lng, accuracy_m, observed_at, expires_at, confidence,
+        source_provider, source_record_id)
+     VALUES ($1, $2, $3, $4, $5, coalesce($6::timestamptz, now()), $7::timestamptz, $8,
+             coalesce($9, lower($2::text)), coalesce($10, 'test:' || gen_random_uuid()::text))`,
     [
       args.poiId,
       args.sourceKind,
@@ -127,6 +131,8 @@ export async function insertObs(admin: pg.Pool, args: ObsArgs): Promise<void> {
       args.observedAt ?? null,
       args.expiresAt ?? null,
       args.confidence ?? 0.9,
+      args.sourceProvider ?? null,
+      args.sourceRecordId ?? null,
     ],
   );
 }

@@ -27,6 +27,8 @@ declare module 'fastify' {
      * its RLS-scoped transaction.
      */
     pools: Pools;
+    /** Per-IP one-minute budget applied to every contract route. */
+    apiRateLimitMax: number;
   }
 }
 

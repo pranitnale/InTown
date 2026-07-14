@@ -5,12 +5,21 @@ import { SettingsRoute } from '../screens/SettingsScreen.tsx';
 import { GdprControls } from '../components/GdprControls.tsx';
 import { ProfileProvider } from '../../onboarding/index.ts';
 import { createMockProfileApi } from '../../onboarding/index.ts';
+import { SessionProvider, createMemoryNavigator, createMockAuthApi } from '../../auth/index.ts';
 
 const render = (node: ReactElement): string => renderToStaticMarkup(node);
 
 describe('settings screen (AC #1)', () => {
   it('SettingsRoute renders the settings chrome', () => {
-    const html = render(<SettingsRoute />);
+    const html = render(
+      <SessionProvider
+        api={createMockAuthApi()}
+        navigator={createMemoryNavigator('/settings')}
+        autoRefresh={false}
+      >
+        <SettingsRoute />
+      </SessionProvider>,
+    );
     expect(html).toContain('Settings');
     expect(html).toContain('control over your data');
   });

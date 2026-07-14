@@ -1,16 +1,14 @@
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Link, useParams } from 'react-router';
 import type { TripMember } from '@intown/contracts/types';
 import { Button, Card } from '../../design-system/index.ts';
 import {
   AuthFlow,
-  SessionProvider,
-  createAuthApi,
-  createMemoryNavigator,
   useAuthGate,
   useSession,
 } from '../../auth/index.ts';
+import { getRuntimeConfig } from '../../config/runtime.ts';
 import { createTripsApi, type InvitePreview } from '../api/index.ts';
 import { RoleBadge } from '../components/RoleBadge.tsx';
 import { roleDescription } from '../logic/roles.ts';
@@ -193,14 +191,13 @@ export function InvitePreviewCard({ preview, busy, error, onJoin }: InvitePrevie
  * around {@link JoinLanding}.
  */
 export function JoinRoute() {
-  const navigatorRef = useRef(createMemoryNavigator('/join'));
-  const authApi = useMemo(() => createAuthApi({ mock: true }), []);
-  const tripsApi = useMemo(() => createTripsApi({ mock: true }), []);
+  const tripsApi = useMemo(() => {
+    const config = getRuntimeConfig();
+    return createTripsApi({ mock: config.mockApi });
+  }, []);
   return (
-    <SessionProvider api={authApi} navigator={navigatorRef.current}>
-      <TripsProvider api={tripsApi}>
-        <JoinLanding />
-      </TripsProvider>
-    </SessionProvider>
+    <TripsProvider api={tripsApi}>
+      <JoinLanding />
+    </TripsProvider>
   );
 }

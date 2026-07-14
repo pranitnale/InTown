@@ -19,6 +19,7 @@ import { JoinRoute, InvitePreviewCard } from '../screens/JoinLanding.tsx';
 import { createMockTripsApi, type InvitePreview, type TasteSummary } from '../api/index.ts';
 import { emptyCompanions } from '../logic/companions.ts';
 import { initWizard } from '../logic/wizard.ts';
+import { SessionProvider, createMemoryNavigator, createMockAuthApi } from '../../auth/index.ts';
 
 const render = (node: ReactElement): string => renderToStaticMarkup(node);
 const noop = () => {};
@@ -166,9 +167,15 @@ describe('trip routes (AC #2/#5/#6)', () => {
   it('TripNewRoute mounts the wizard at the city step with NO sign-in gate before the quiz', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter initialEntries={['/trips/new']}>
-        <Routes>
-          <Route path="/trips/new" element={<TripNewRoute />} />
-        </Routes>
+        <SessionProvider
+          api={createMockAuthApi()}
+          navigator={createMemoryNavigator('/trips/new')}
+          autoRefresh={false}
+        >
+          <Routes>
+            <Route path="/trips/new" element={<TripNewRoute />} />
+          </Routes>
+        </SessionProvider>
       </MemoryRouter>,
     );
     expect(html).toContain('Where and when?');
@@ -180,9 +187,15 @@ describe('trip routes (AC #2/#5/#6)', () => {
   it('JoinRoute mounts the invite landing (public → auth flow)', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter initialEntries={['/join/PORTO-7QF2K9']}>
-        <Routes>
-          <Route path="/join/:code" element={<JoinRoute />} />
-        </Routes>
+        <SessionProvider
+          api={createMockAuthApi()}
+          navigator={createMemoryNavigator('/join/PORTO-7QF2K9')}
+          autoRefresh={false}
+        >
+          <Routes>
+            <Route path="/join/:code" element={<JoinRoute />} />
+          </Routes>
+        </SessionProvider>
       </MemoryRouter>,
     );
     expect(html).toContain('Checking your invite');

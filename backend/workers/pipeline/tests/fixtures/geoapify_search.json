@@ -1,0 +1,22 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-8.61479, 41.14663]},
+      "properties": {
+        "name": "Fixture Museum",
+        "formatted": "Fixture Museum, Porto, Portugal",
+        "country_code": "pt",
+        "result_type": "amenity",
+        "categories": ["entertainment.museum"],
+        "datasource": {
+          "sourcename": "openstreetmap",
+          "attribution": "© OpenStreetMap contributors",
+          "license": "Open Database License",
+          "raw": {"osm_id": 101, "osm_type": "n", "wikidata": "Q100"}
+        }
+      }
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import {
   PoiEnrichment,
   Review,
   BBox,
+  Url,
+  IsoDateTime,
 } from '../types/index.ts';
 
 /**
@@ -25,9 +27,33 @@ const PoiIdParams = z.object({ id: Uuid });
  * per-language enrichment summary, and review aggregate. Facts carry their own
  * source_url / source_kind / confidence for the citation UX.
  */
+export const FACT_SELECTION_RULE_VALUES = [
+  'official_operational',
+  'newest_time_sensitive',
+  'recency_tolerant_experiential',
+  'verified_visitor_correction',
+] as const;
+export const FactSelectionRule = z.enum(FACT_SELECTION_RULE_VALUES);
+
+/** One displayable winner for an attribute, with the decision-card honesty metadata. */
+export const PoiCardFact = Fact.extend({
+  /** Conflict-hierarchy rule that selected this row. */
+  selected_by: FactSelectionRule,
+  /** True when competing active/disputed values exist for this attribute. */
+  disputed: z.boolean(),
+  /** Experience claim backed by fewer than two independent reports. */
+  single_report: z.boolean(),
+  /** Direct citation, or an explicit honest unknown marker. Never omitted. */
+  citation: z.union([Url, z.literal('N/A')]),
+  /** Observation timestamp surfaced explicitly for stale-data UX. */
+  as_of: IsoDateTime,
+});
+export type PoiCardFact = z.infer<typeof PoiCardFact>;
+
 export const PoiCard = z.object({
   poi: Poi,
-  facts: z.array(Fact),
+  /** Exactly one conflict-resolved, displayable winner per attribute. */
+  facts: z.array(PoiCardFact),
   hours: z.array(PoiHours),
   /** Enrichment for the requested language, null if not yet generated. */
   enrichment: PoiEnrichment.nullable(),

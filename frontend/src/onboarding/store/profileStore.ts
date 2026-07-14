@@ -6,7 +6,7 @@ import type {
   UpdateTravelerProfileBody,
   UpdateTasteProfileBody,
 } from '@intown/contracts/api';
-import type { ProfileApi } from '../api/index.ts';
+import { ProfileSessionExpiredError, type ProfileApi } from '../api/index.ts';
 
 export type ProfileStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -16,12 +16,9 @@ export interface ProfileState {
   user: User | null;
   traveler: TravelerProfile | null;
   taste: TasteProfile | null;
-
-  /** Load user + traveler + taste in parallel. Never rejects; sets `error`. */
   load: () => Promise<void>;
   saveProfile: (body: UpdateProfileBody) => Promise<User>;
   saveTraveler: (body: UpdateTravelerProfileBody) => Promise<TravelerProfile>;
-  /** Append a new taste-profile version and adopt it as current. */
   saveTaste: (body: UpdateTasteProfileBody) => Promise<TasteProfile>;
   exportAccount: () => Promise<AccountExport>;
   eraseAccount: () => Promise<boolean>;
@@ -30,11 +27,22 @@ export interface ProfileState {
 export type ProfileStore = UseBoundStore<StoreApi<ProfileState>>;
 
 /**
- * P05-LOCAL profile store (own Zustand instance — never touches
- * `src/store/app.ts`). One instance per {@link ProfileProvider} so
- * onboarding/settings/dev/tests stay isolated. Mirrors the P03 session store.
+ * Profile store with per-resource race protection. A slow mount load cannot
+ * overwrite a newer confirmed save, and a superseded load cannot win later.
  */
-export function createProfileStore(api: ProfileApi): ProfileStore {
+export function createProfileStore(
+  api: ProfileApi,
+  onSessionExpired?: () => void,
+): ProfileStore {
+  let loadRequest = 0;
+  let userRevision = 0;
+  let travelerRevision = 0;
+  let tasteRevision = 0;
+
+  function handleSessionError(err: unknown): void {
+    if (err instanceof ProfileSessionExpiredError) onSessionExpired?.();
+  }
+
   return create<ProfileState>((set) => ({
     status: 'idle',
     error: null,
@@ -43,6 +51,8 @@ export function createProfileStore(api: ProfileApi): ProfileStore {
     taste: null,
 
     async load() {
+      const request = ++loadRequest;
+      const revisions = { userRevision, travelerRevision, tasteRevision };
       set({ status: 'loading', error: null });
       try {
         const [user, traveler, taste] = await Promise.all([
@@ -50,37 +60,81 @@ export function createProfileStore(api: ProfileApi): ProfileStore {
           api.getTravelerProfile(),
           api.getTasteProfile(),
         ]);
-        set({ status: 'ready', user, traveler, taste });
+        if (request !== loadRequest) return;
+        set((current) => ({
+          status: 'ready',
+          error: null,
+          user: userRevision === revisions.userRevision ? user : current.user,
+          traveler:
+            travelerRevision === revisions.travelerRevision ? traveler : current.traveler,
+          taste: tasteRevision === revisions.tasteRevision ? taste : current.taste,
+        }));
       } catch (err) {
+        if (request !== loadRequest) return;
+        handleSessionError(err);
         set({ status: 'error', error: err instanceof Error ? err.message : 'Failed to load' });
       }
     },
 
     async saveProfile(body) {
-      const user = await api.updateProfile(body);
-      set({ user });
-      return user;
+      const revision = ++userRevision;
+      try {
+        const user = await api.updateProfile(body);
+        if (revision === userRevision) set({ user });
+        return user;
+      } catch (err) {
+        handleSessionError(err);
+        throw err;
+      }
     },
 
     async saveTraveler(body) {
-      const traveler = await api.updateTravelerProfile(body);
-      set({ traveler });
-      return traveler;
+      const revision = ++travelerRevision;
+      try {
+        const traveler = await api.updateTravelerProfile(body);
+        if (revision === travelerRevision) set({ traveler });
+        return traveler;
+      } catch (err) {
+        handleSessionError(err);
+        throw err;
+      }
     },
 
     async saveTaste(body) {
-      const taste = await api.updateTasteProfile(body);
-      set({ taste });
-      return taste;
+      const revision = ++tasteRevision;
+      try {
+        const taste = await api.updateTasteProfile(body);
+        if (revision === tasteRevision) set({ taste });
+        return taste;
+      } catch (err) {
+        handleSessionError(err);
+        throw err;
+      }
     },
 
-    exportAccount() {
-      return api.exportAccount();
+    async exportAccount() {
+      try {
+        return await api.exportAccount();
+      } catch (err) {
+        handleSessionError(err);
+        throw err;
+      }
     },
 
     async eraseAccount() {
-      const { erased } = await api.eraseAccount();
-      if (erased) set({ user: null, traveler: null, taste: null });
+      let erased: boolean;
+      try {
+        ({ erased } = await api.eraseAccount());
+      } catch (err) {
+        handleSessionError(err);
+        throw err;
+      }
+      if (erased) {
+        userRevision += 1;
+        travelerRevision += 1;
+        tasteRevision += 1;
+        set({ user: null, traveler: null, taste: null });
+      }
       return erased;
     },
   }));

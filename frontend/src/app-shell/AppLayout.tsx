@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router';
 import { ThemeToggle, cn } from '../design-system/index.ts';
 import { InstallButton } from './InstallButton.tsx';
+import { FirstLoginConsentPrompt } from '../auth/index.ts';
 
 /**
  * Responsive app shell (AC #5) — one codebase, breakpoint-driven:
@@ -43,6 +44,8 @@ export function AppLayout() {
           <ThemeToggle />
         </div>
       </header>
+
+      <FirstLoginConsentPrompt />
 
       <div className="flex flex-1 md:grid md:grid-cols-[minmax(0,1fr)_360px]">
         <main className="min-w-0 flex-1 pb-20 md:pb-0">

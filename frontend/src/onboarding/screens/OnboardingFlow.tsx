@@ -1,48 +1,26 @@
-import { useMemo, useState } from 'react';
-import { AGE_BAND_VALUES, type AgeBand, type BudgetTier } from '@intown/contracts/types';
-import type { UpdateTravelerProfileBody } from '@intown/contracts/api';
-import { Button, Card } from '../../design-system/index.ts';
+import { useMemo, useState, type ReactNode } from 'react';
+import type { AgeBand, BudgetTier } from '@intown/contracts/types';
+import { Button, Card, Skeleton } from '../../design-system/index.ts';
+import { getRuntimeConfig } from '../../config/runtime.ts';
+import { useSession } from '../../auth/index.ts';
 import { PhotoSwipeDeck } from '../components/PhotoSwipeDeck.tsx';
 import { QuizFramework, type QuizChoiceQuestion } from '../components/QuizFramework.tsx';
 import { TasteProfileEditor } from '../components/TasteProfileEditor.tsx';
+import { TravelerProfileEditor } from '../components/TravelerProfileEditor.tsx';
 import { weightsToInterests, type WeightMap } from '../logic/swipe.ts';
 import type { EndowedStep } from '../logic/quiz.ts';
 import { ProfileProvider } from '../store/ProfileProvider.tsx';
 import { useProfile } from '../store/useProfile.ts';
 import { createProfileApi } from '../api/index.ts';
 
-type Stage = 'intro' | 'swipe' | 'quiz' | 'rank' | 'done';
+type Stage = 'intro' | 'traveler' | 'swipe' | 'quiz' | 'rank' | 'done';
 
-/** Endowed progress: genuinely earned — the user has already created an account
- *  (they have a session), so step 1 is really done. Not a fake head-start. */
 const ENDOWED: EndowedStep = {
   label: 'Account created',
-  reason: 'You already created your account — that counts as step one.',
-};
-
-/**
- * Sensible non-age defaults for the FIRST-TIME traveler create. Onboarding only
- * collects the age band here, but the backend rejects a partial create (it needs
- * every NOT NULL field: age_band, mobility, eu_residency, student, currency —
- * `backend/api/src/profile/routes.ts`). So a first create sends a full valid body
- * with these defaults; the user tunes them later in Settings. An update of an
- * existing profile stays partial (just the age band).
- */
-const TRAVELER_CREATE_DEFAULTS: Omit<UpdateTravelerProfileBody, 'age_band'> = {
-  mobility: 'full',
-  eu_residency: false,
-  student: false,
-  languages: [],
-  currency: 'EUR',
+  reason: 'You already created your account - that counts as step one.',
 };
 
 const QUIZ_QUESTIONS: readonly QuizChoiceQuestion[] = [
-  {
-    id: 'age_band',
-    prompt: 'Which age band fits you?',
-    rationale: 'We use it to suggest a day pace — never to limit what you can do.',
-    options: AGE_BAND_VALUES.map((b) => ({ value: b, label: b })),
-  },
   {
     id: 'budget',
     prompt: "What's your typical budget?",
@@ -57,133 +35,137 @@ const QUIZ_QUESTIONS: readonly QuizChoiceQuestion[] = [
 ];
 
 /**
- * Profile-scoped onboarding flow (P05). Ordered to honour the friction law: no
- * front-loaded form — the user picks what they're into (swipe), answers only the
- * two questions that visibly change output (quiz, endowed progress), then ranks
- * the survivors and fine-tunes anti-preferences / hard exclusions / pace.
+ * Profile onboarding. Server data is fully loaded before any editor mounts, so
+ * a returning profile can never be mistaken for a first-time profile. Every
+ * required traveler field is visible and saved only after explicit confirmation.
  */
 export function OnboardingFlow() {
-  const { store } = useProfile();
+  const { status, error, traveler, taste, store } = useProfile();
   const [stage, setStage] = useState<Stage>('intro');
   const [interests, setInterests] = useState<string[]>([]);
-  const [ageBand, setAgeBand] = useState<AgeBand | undefined>(undefined);
+  const [ageBand, setAgeBand] = useState<AgeBand | undefined>(traveler?.age_band);
   const [budget, setBudget] = useState<BudgetTier | undefined>(undefined);
-  const [saveError, setSaveError] = useState<string | null>(null);
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <section className="mx-auto flex max-w-2xl flex-col gap-4 p-6" aria-busy="true">
+        <h1 className="text-2xl font-bold leading-tight text-text">Let&rsquo;s tune InTown to you</h1>
+        <span className="sr-only">Loading your saved profile...</span>
+        <Skeleton height={28} width="55%" />
+        <Skeleton height={180} />
+      </section>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <section className="mx-auto flex max-w-md flex-col gap-3 p-6">
+        <h1 className="text-xl font-semibold text-text">We couldn&rsquo;t load your profile</h1>
+        <p className="text-sm text-text-secondary" role="alert">
+          {error ?? 'Check your connection and try again.'}
+        </p>
+        <Button variant="secondary" onClick={() => void store.getState().load()}>
+          Try again
+        </Button>
+      </section>
+    );
+  }
 
   function onSwipeDone(weights: WeightMap) {
     setInterests(weightsToInterests(weights));
     setStage('quiz');
   }
 
-  /**
-   * Persist the traveler age band (drives pricing + pace defaults). On a
-   * first-time create there is no traveler row yet, so a partial body would 400
-   * against the live backend — send a full valid body with sensible defaults. On
-   * an update of an existing profile a partial body (just the age band) is fine.
-   * Errors surface as an alert rather than being swallowed as a fire-and-forget.
-   */
-  async function persistAgeBand(band: AgeBand) {
-    // GUARD (live-client wiring): `traveler` is null until load() resolves, so
-    // create-vs-update is decided from possibly-unloaded state. Harmless with
-    // today's mock (seeded synchronously), but with the live client a returning
-    // user who re-runs onboarding before load resolves would look like a first
-    // create and send the full-defaults body — the backend upsert would then
-    // overwrite their existing mobility/residency/student/currency/languages.
-    // Whoever wires the live client must gate this on load having completed.
-    const existing = store.getState().traveler;
-    const body: UpdateTravelerProfileBody = existing
-      ? { age_band: band }
-      : { ...TRAVELER_CREATE_DEFAULTS, age_band: band };
-    try {
-      await store.getState().saveTraveler(body);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save your age band');
-    }
-  }
-
   function onQuizDone(answers: Record<string, string>) {
-    const band = answers['age_band'];
-    const validBand = band && (AGE_BAND_VALUES as readonly string[]).includes(band);
-    if (validBand) setAgeBand(band as AgeBand);
-    const b = answers['budget'];
-    if (b) setBudget(b as BudgetTier);
-    if (validBand) {
-      setSaveError(null);
-      void persistAgeBand(band as AgeBand);
-    }
+    const selectedBudget = answers.budget;
+    if (selectedBudget) setBudget(selectedBudget as BudgetTier);
     setStage('rank');
   }
 
-  const content = useMemo(() => {
-    switch (stage) {
-      case 'intro':
-        return (
-          <Card why="A couple of taps, then you're planning." className="p-5">
-            <h1 className="mb-1 text-2xl font-bold leading-tight text-text">Let&rsquo;s tune InTown to you</h1>
-            <p className="mb-4 text-base text-text-secondary">
-              No long form. Swipe a few cards, answer two quick questions, and rank what matters.
-            </p>
-            <Button onClick={() => setStage('swipe')}>Start</Button>
-          </Card>
-        );
-      case 'swipe':
-        return <PhotoSwipeDeck onComplete={onSwipeDone} />;
-      case 'quiz':
-        return <QuizFramework endowed={ENDOWED} questions={QUIZ_QUESTIONS} onComplete={onQuizDone} />;
-      case 'rank':
-        return (
-          <TasteProfileEditor
-            value={null}
-            initialInterests={interests}
-            initialBudget={budget}
-            ageBand={ageBand}
+  let content: ReactNode;
+  switch (stage) {
+    case 'intro':
+      content = (
+        <Card why="A couple of taps, then you're planning." className="p-5">
+          <h1 className="mb-1 text-2xl font-bold leading-tight text-text">
+            Let&rsquo;s tune InTown to you
+          </h1>
+          <p className="mb-4 text-base text-text-secondary">
+            Confirm your traveler details, swipe a few cards, then rank what matters.
+          </p>
+          <Button onClick={() => setStage('traveler')}>Start</Button>
+        </Card>
+      );
+      break;
+    case 'traveler':
+      content = (
+        <Card why="These details shape prices, pace, and accessibility." className="p-5">
+          <h2 className="mb-1 text-xl font-semibold text-text">Confirm your traveler details</h2>
+          <p className="mb-5 text-sm text-text-secondary">
+            Review every field below. The selected values are saved only when you confirm them.
+          </p>
+          <TravelerProfileEditor
+            value={traveler}
             onSave={async (body) => {
-              await store.getState().saveTaste(body);
-              setStage('done');
+              const saved = await store.getState().saveTraveler(body);
+              setAgeBand(saved.age_band);
+              setStage('swipe');
             }}
           />
-        );
-      case 'done':
-        return (
-          <Card why="Your profile is saved." className="p-5">
-            <h1 className="mb-1 text-2xl font-bold leading-tight text-text">You&rsquo;re all set</h1>
-            <p className="text-base text-text-secondary">
-              We&rsquo;ll use this to shape what you see — and you can change any of it in Settings.
-            </p>
-          </Card>
-        );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stage-driven view; deps are stable setters/store
-  }, [stage, interests, ageBand, budget]);
+        </Card>
+      );
+      break;
+    case 'swipe':
+      content = <PhotoSwipeDeck onComplete={onSwipeDone} />;
+      break;
+    case 'quiz':
+      content = (
+        <QuizFramework endowed={ENDOWED} questions={QUIZ_QUESTIONS} onComplete={onQuizDone} />
+      );
+      break;
+    case 'rank':
+      content = (
+        <TasteProfileEditor
+          value={taste}
+          initialInterests={interests}
+          initialBudget={budget}
+          ageBand={ageBand}
+          onSave={async (body) => {
+            await store.getState().saveTaste(body);
+            setStage('done');
+          }}
+        />
+      );
+      break;
+    case 'done':
+      content = (
+        <Card why="Your profile is saved." className="p-5">
+          <h1 className="mb-1 text-2xl font-bold leading-tight text-text">You&rsquo;re all set</h1>
+          <p className="text-base text-text-secondary">
+            We&rsquo;ll use the preferences you gave us to shape your plans. Behavioral learning is
+            controlled separately by your personalization choice.
+          </p>
+        </Card>
+      );
+      break;
+  }
 
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      {saveError ? (
-        <p role="alert" className="text-sm text-error">
-          {saveError}
-        </p>
-      ) : null}
-      {content}
-    </div>
-  );
+  return <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">{content}</div>;
 }
 
-/**
- * Mountable route: wires a {@link ProfileProvider} around {@link OnboardingFlow}.
- * Uses the fixture-backed mock intentionally: P04's live client is already
- * merged, but wiring it here needs P03's SessionProvider/auth integration (the
- * live client relies on the session-bound credentials), which is out of P05
- * scope. The flip to the live client is deferred to that auth-integration work
- * (P03 session mount), NOT gated on P04. A fresh onboarding starts with no saved
- * taste/traveler profile.
- */
+/** Production route uses the global API base; fixtures require explicit dev opt-in. */
 export function OnboardingRoute() {
-  const api = useMemo(
-    () => createProfileApi({ mock: true, emptyTaste: true, emptyTraveler: true }),
-    [],
-  );
+  const { reportExpired } = useSession();
+  const api = useMemo(() => {
+    const config = getRuntimeConfig();
+    return createProfileApi({
+      mock: config.mockApi,
+      baseUrl: config.apiBaseUrl,
+      ...(config.mockApi ? { emptyTaste: true, emptyTraveler: true } : {}),
+    });
+  }, []);
   return (
-    <ProfileProvider api={api}>
+    <ProfileProvider api={api} onSessionExpired={reportExpired}>
       <OnboardingFlow />
     </ProfileProvider>
   );

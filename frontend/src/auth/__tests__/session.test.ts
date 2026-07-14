@@ -51,7 +51,7 @@ describe('session store', () => {
     expect(store.getState().redirectTo).toBeNull();
   });
 
-  it('mount reconciliation swallows a failing session probe and stays anonymous', async () => {
+  it('mount reconciliation surfaces a failing session probe as temporarily unavailable', async () => {
     const api = createMockAuthApi();
     vi.spyOn(api, 'getSession').mockRejectedValue(new Error('network down'));
     const navigator = createMemoryNavigator('/');
@@ -60,8 +60,9 @@ describe('session store', () => {
     // Must resolve (no unhandled rejection) even though getSession rejects.
     await expect(reconcileSessionOnMount(store)).resolves.toBeUndefined();
 
-    expect(store.getState().status).toBe('anonymous');
+    expect(store.getState().status).toBe('unavailable');
     expect(store.getState().user).toBeNull();
+    expect(store.getState().error).toBe('network down');
   });
 
   it('persists redirectTo to injected storage and restores it across a remount', async () => {

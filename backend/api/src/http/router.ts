@@ -30,6 +30,12 @@ export function registerRoute(
   app.route<RouteGenericInterface>({
     method: contract.method,
     url: contract.path,
+    config: {
+      rateLimit: {
+        max: app.apiRateLimitMax,
+        timeWindow: '1 minute',
+      },
+    },
     preValidation: async (req, reply) => {
       try {
         if (contract.params) req.params = contract.params.parse(req.params);

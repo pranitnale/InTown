@@ -1,0 +1,48 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 501,
+        "ns": 6,
+        "title": "File:Fixture museum.jpg",
+        "imageinfo": [
+          {
+            "url": "https://upload.wikimedia.org/fixture/original.jpg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Fixture_museum.jpg",
+            "thumburl": "https://upload.wikimedia.org/fixture/thumb.jpg",
+            "width": 4000,
+            "height": 3000,
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "Artist": {"value": "<a href='https://commons.wikimedia.org/wiki/User:Alice'>Alice Example</a>"},
+              "Credit": {"value": "Own work"},
+              "LicenseShortName": {"value": "CC BY-SA 4.0"},
+              "LicenseUrl": {"value": "https://creativecommons.org/licenses/by-sa/4.0/"},
+              "AttributionRequired": {"value": "true"},
+              "ImageDescription": {"value": "Exterior of Fixture Museum"}
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 502,
+        "ns": 6,
+        "title": "File:Nonfree fixture.jpg",
+        "imageinfo": [
+          {
+            "url": "https://upload.wikimedia.org/fixture/nonfree.jpg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nonfree_fixture.jpg",
+            "width": 1000,
+            "height": 1000,
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "Artist": {"value": "Unknown"},
+              "LicenseShortName": {"value": "All rights reserved"}
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

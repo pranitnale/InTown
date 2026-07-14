@@ -260,9 +260,36 @@ describe('POI reads (AC6)', () => {
     const cityId = await seedCity();
     const poiId = await seedPoi(admin, { city_id: cityId, name: 'Card POI' });
 
-    // Facts: two active + one rejected (must be excluded).
-    await seedFact(admin, { entity_id: poiId, attribute: 'hours', value: { open: '09:00' } });
+    // Facts: official hours must beat a newer conflicting web report; rejected
+    // and superseded history must not appear as extra card rows.
+    await seedFact(admin, {
+      entity_id: poiId,
+      attribute: 'hours',
+      value: { open: '09:00' },
+      source_url: 'https://museum.example/hours',
+      observed_at: '2026-01-01T00:00:00Z',
+    });
+    await seedFact(admin, {
+      entity_id: poiId,
+      attribute: 'hours',
+      value: { open: '11:00' },
+      source_kind: 'web_review',
+      observed_at: '2026-06-01T00:00:00Z',
+    });
     await seedFact(admin, { entity_id: poiId, attribute: 'price', value: { amount: 15 } });
+    await seedFact(admin, {
+      entity_id: poiId,
+      attribute: 'best_time',
+      value: { window: 'sunrise' },
+      source_kind: 'web_review',
+      corroboration_count: 0,
+    });
+    await seedFact(admin, {
+      entity_id: poiId,
+      attribute: 'price',
+      value: { amount: 99 },
+      status: 'superseded',
+    });
     await seedFact(admin, {
       entity_id: poiId,
       attribute: 'hours',
@@ -297,8 +324,19 @@ describe('POI reads (AC6)', () => {
     const card = res.json() as PoiCard;
 
     expect(card.poi.id).toBe(poiId);
-    expect(card.facts).toHaveLength(2);
-    expect(card.facts.every((f) => f.status !== 'rejected')).toBe(true);
+    expect(card.facts).toHaveLength(3);
+    expect(card.facts.every((f) => f.status === 'active')).toBe(true);
+    const hoursFact = card.facts.find((fact) => fact.attribute === 'hours')!;
+    expect(hoursFact.value).toEqual({ open: '09:00' });
+    expect(hoursFact.selected_by).toBe('official_operational');
+    expect(hoursFact.disputed).toBe(true);
+    expect(hoursFact.citation).toBe('https://museum.example/hours');
+    expect(hoursFact.as_of).toBe(hoursFact.observed_at);
+    const priceFact = card.facts.find((fact) => fact.attribute === 'price')!;
+    expect(priceFact.citation).toBe('N/A');
+    const bestTime = card.facts.find((fact) => fact.attribute === 'best_time')!;
+    expect(bestTime.single_report).toBe(true);
+    expect(bestTime.citation).toBe('N/A');
     expect(card.hours).toHaveLength(1);
     expect(card.hours[0]!.opens).toBe('09:00');
     expect(card.enrichment).not.toBeNull();

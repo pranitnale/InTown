@@ -1,0 +1,13 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 100,
+        "ns": 0,
+        "title": "Fixture Museum",
+        "extract": "Fixture Museum is significant because it preserves the city's recorded material culture."
+      }
+    ]
+  }
+}
